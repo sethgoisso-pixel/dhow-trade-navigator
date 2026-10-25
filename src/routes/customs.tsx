@@ -17,7 +17,7 @@ export const Route = createFileRoute("/customs")({
 export function ComplianceBlock({ query, value }: { query: string; value: number }) {
   const { form } = useDhow();
   const results = classifyHS(query);
-  const top = results[0] ?? { ...HS_DB[0], confidence: 0 };
+  const top = results[0] ?? { ...HS_DB[0]!, confidence: 0 };
   const rows = dutyBreakdown(top, form.destination, value);
   const total = rows.reduce((s, r) => s + r.amount, 0);
   return (

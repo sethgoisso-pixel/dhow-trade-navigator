@@ -19,7 +19,7 @@ let id = 0;
 const now = () => new Date().toISOString().slice(11, 19);
 
 let state: State = {
-  form: { ...SCENARIOS[0].form },
+  form: { ...SCENARIOS[0]!.form },
   scenario: null,
   running: false,
   stepIndex: -1,
@@ -66,7 +66,7 @@ export function runAgent(scenario: Scenario | null) {
   pushLog(scenario ? `▶ Demo scenario loaded: ${scenario.title}` : "▶ New cargo request received", "ok");
   toast.info("Dhow agent is reasoning…", { description: scenario?.subtitle ?? `${state.form.origin} → ${state.form.destination}` });
   const tick = (i: number) => {
-    pushLog(steps[i], "agent");
+    pushLog(steps[i]!, "agent");
     set({ stepIndex: i });
     if (i < steps.length - 1) timer = setTimeout(() => tick(i + 1), 850);
     else
@@ -106,7 +106,7 @@ export function startAmbient() {
   AMBIENT.slice(0, 4).forEach(([m, k]) => pushLog(m, k));
   setInterval(() => {
     if (state.running) return;
-    const [m, k] = AMBIENT[ambient++ % AMBIENT.length];
+    const [m, k] = AMBIENT[ambient++ % AMBIENT.length]!;
     pushLog(m, k);
   }, 4200);
 }
