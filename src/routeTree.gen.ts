@@ -10,33 +10,73 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as CustomsRouteImport } from './routes/customs'
+import { Route as DispatchRouteImport } from './routes/dispatch'
+import { Route as OptimizerRouteImport } from './routes/optimizer'
+import { Route as ScenariosRouteImport } from './routes/scenarios'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CustomsRoute = CustomsRouteImport.update({
+  id: '/customs',
+  path: '/customs',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DispatchRoute = DispatchRouteImport.update({
+  id: '/dispatch',
+  path: '/dispatch',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OptimizerRoute = OptimizerRouteImport.update({
+  id: '/optimizer',
+  path: '/optimizer',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ScenariosRoute = ScenariosRouteImport.update({
+  id: '/scenarios',
+  path: '/scenarios',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/customs': typeof CustomsRoute
+  '/dispatch': typeof DispatchRoute
+  '/optimizer': typeof OptimizerRoute
+  '/scenarios': typeof ScenariosRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/customs': typeof CustomsRoute
+  '/dispatch': typeof DispatchRoute
+  '/optimizer': typeof OptimizerRoute
+  '/scenarios': typeof ScenariosRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/customs': typeof CustomsRoute
+  '/dispatch': typeof DispatchRoute
+  '/optimizer': typeof OptimizerRoute
+  '/scenarios': typeof ScenariosRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths: '/' | '/customs' | '/dispatch' | '/optimizer' | '/scenarios'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to: '/' | '/customs' | '/dispatch' | '/optimizer' | '/scenarios'
+  id: '__root__' | '/' | '/customs' | '/dispatch' | '/optimizer' | '/scenarios'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  CustomsRoute: typeof CustomsRoute
+  DispatchRoute: typeof DispatchRoute
+  OptimizerRoute: typeof OptimizerRoute
+  ScenariosRoute: typeof ScenariosRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +88,43 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/customs': {
+      id: '/customs'
+      path: '/customs'
+      fullPath: '/customs'
+      preLoaderRoute: typeof CustomsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/dispatch': {
+      id: '/dispatch'
+      path: '/dispatch'
+      fullPath: '/dispatch'
+      preLoaderRoute: typeof DispatchRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/optimizer': {
+      id: '/optimizer'
+      path: '/optimizer'
+      fullPath: '/optimizer'
+      preLoaderRoute: typeof OptimizerRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/scenarios': {
+      id: '/scenarios'
+      path: '/scenarios'
+      fullPath: '/scenarios'
+      preLoaderRoute: typeof ScenariosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  CustomsRoute: CustomsRoute,
+  DispatchRoute: DispatchRoute,
+  OptimizerRoute: OptimizerRoute,
+  ScenariosRoute: ScenariosRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
