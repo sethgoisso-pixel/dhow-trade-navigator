@@ -1,8 +1,42 @@
 import { Link, useNavigate } from "@tanstack/react-router";
-import { Compass, PlusCircle, Zap } from "lucide-react";
+import { PlusCircle, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SCENARIOS } from "@/lib/dhow-data";
 import { runAgent } from "@/lib/dhow-store";
+
+export function DhowLogo({ className = "size-9" }: { className?: string }) {
+  return (
+    <div className={`relative flex items-center justify-center rounded-xl bg-gradient-to-br from-[#1E293B] to-[#0A0F1D] p-2 border border-[#E5C378]/30 shadow-lg shadow-[#D4AF37]/10 ${className}`}>
+      <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" className="size-full">
+        <path
+          d="M10 32V8C10 8 28 9 28 20C28 29 18 32 10 32Z"
+          stroke="url(#goldGrad)"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M10 24C16 23 22 20 22 14"
+          stroke="url(#goldGrad)"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeDasharray="2 3"
+        />
+        <path
+          d="M6 32H32L29 35H9L6 32Z"
+          fill="url(#goldGrad)"
+        />
+        <defs>
+          <linearGradient id="goldGrad" x1="6" y1="8" x2="32" y2="35" gradientUnits="userSpaceOnUse">
+            <stop stopColor="#FDE68A" />
+            <stop offset="0.5" stopColor="#D4AF37" />
+            <stop offset="1" stopColor="#996515" />
+          </linearGradient>
+        </defs>
+      </svg>
+    </div>
+  );
+}
 
 const NAV = [
   { to: "/", label: "Mission Control" },
@@ -15,34 +49,52 @@ const NAV = [
 export function Header() {
   const navigate = useNavigate();
   return (
-    <header className="sticky top-0 z-40 bg-gradient-navy text-navy-foreground shadow-card">
-      <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-3 px-4 py-3">
-        <Link to="/" className="flex items-center gap-2">
-          <span className="grid size-9 place-items-center rounded-lg bg-gradient-gold text-navy shadow-gold">
-            <Compass className="size-5" />
+    <header className="sticky top-0 z-40 border-b border-white/10 bg-[#080C14]/90 backdrop-blur-xl text-slate-100 shadow-2xl">
+      <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6">
+        <div className="flex items-center gap-3">
+          <Link to="/" className="flex items-center gap-3 group">
+            <DhowLogo className="size-10 transition-transform group-hover:scale-105" />
+            <div className="flex flex-col">
+              <span className="text-lg font-bold tracking-tight text-slate-100 sm:text-xl font-['Syne',sans-serif]">Dhow</span>
+              <span className="text-[9px] font-semibold tracking-widest text-[#E5C378] uppercase">Emirates Trade Intelligence</span>
+            </div>
+          </Link>
+          <span className="hidden md:inline-flex items-center gap-1.5 rounded-full border border-[#D4AF37]/30 bg-[#D4AF37]/10 px-2.5 py-0.5 text-[10px] font-medium text-[#E5C378]">
+            <span className="size-1.5 animate-pulse rounded-full bg-emerald-400" />
+            Autonomous v1.0
           </span>
-          <span className="text-xl font-bold tracking-tight">Dhow</span>
-        </Link>
-        <span className="flex items-center gap-1.5 rounded-full border border-gold/40 bg-gold/10 px-2.5 py-1 text-[11px] font-medium text-gold">
-          <span className="size-1.5 animate-pulse rounded-full bg-success" />
-          Autonomous Agent Active (v1.0)
-        </span>
-        <div className="ml-auto flex gap-2">
-          <Button size="sm" variant="outline" className="border-navy-foreground/20 bg-transparent text-navy-foreground hover:bg-navy-foreground/10 hover:text-navy-foreground" onClick={() => navigate({ to: "/optimizer" })}>
-            <PlusCircle /> <span className="hidden sm:inline">Launch New Cargo Request</span><span className="sm:hidden">New</span>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            className="border-white/15 bg-white/[0.04] text-slate-200 hover:bg-white/10 hover:text-white rounded-xl backdrop-blur-sm"
+            onClick={() => navigate({ to: "/optimizer" })}
+          >
+            <PlusCircle className="size-3.5" />
+            <span className="hidden sm:inline">New Cargo Request</span>
+            <span className="sm:hidden">New</span>
           </Button>
-          <Button size="sm" className="shadow-gold" onClick={() => { runAgent(SCENARIOS[0]!); navigate({ to: "/scenarios" }); }}>
-            <Zap /> <span className="hidden sm:inline">Load Hackathon Demo Scenario</span><span className="sm:hidden">Demo</span>
+          <Button
+            size="sm"
+            className="rounded-xl border border-[#F3E5AB]/40 bg-gradient-to-r from-[#D4AF37] via-[#E5C378] to-[#C59B27] text-[#0A0F1D] font-semibold shadow-gold hover:opacity-95"
+            onClick={() => { runAgent(SCENARIOS[0]!); navigate({ to: "/scenarios" }); }}
+          >
+            <Zap className="size-3.5 fill-current" />
+            <span className="hidden sm:inline">Hackathon Demo</span>
+            <span className="sm:hidden">Demo</span>
           </Button>
         </div>
       </div>
-      <nav className="mx-auto flex max-w-7xl gap-1 overflow-x-auto px-4 pb-2">
+
+      <nav className="mx-auto flex max-w-7xl gap-1 overflow-x-auto px-4 pb-2 pt-1 sm:px-6">
         {NAV.map((n) => (
           <Link
             key={n.to}
             to={n.to}
             activeOptions={{ exact: true }}
-            className="whitespace-nowrap rounded-md px-3 py-1.5 text-sm text-navy-foreground/70 transition-colors hover:bg-navy-foreground/10 hover:text-navy-foreground data-[status=active]:bg-gold/15 data-[status=active]:text-gold"
+            className="whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-medium text-slate-400 transition-all hover:bg-white/5 hover:text-slate-200 data-[status=active]:border data-[status=active]:border-[#D4AF37]/40 data-[status=active]:bg-[#D4AF37]/10 data-[status=active]:text-[#E5C378]"
           >
             {n.label}
           </Link>
