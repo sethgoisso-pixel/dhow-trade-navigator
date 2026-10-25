@@ -31,7 +31,7 @@ export function Header() {
           <Button size="sm" variant="outline" className="border-navy-foreground/20 bg-transparent text-navy-foreground hover:bg-navy-foreground/10 hover:text-navy-foreground" onClick={() => navigate({ to: "/optimizer" })}>
             <PlusCircle /> <span className="hidden sm:inline">Launch New Cargo Request</span><span className="sm:hidden">New</span>
           </Button>
-          <Button size="sm" className="shadow-gold" onClick={() => { runAgent(SCENARIOS[0]); navigate({ to: "/scenarios" }); }}>
+          <Button size="sm" className="shadow-gold" onClick={() => { runAgent(SCENARIOS[0]!); navigate({ to: "/scenarios" }); }}>
             <Zap /> <span className="hidden sm:inline">Load Hackathon Demo Scenario</span><span className="sm:hidden">Demo</span>
           </Button>
         </div>
