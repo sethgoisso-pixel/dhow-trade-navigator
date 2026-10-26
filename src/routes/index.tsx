@@ -22,6 +22,7 @@ function MissionControl() {
   ];
   return (
     <>
+      <span className="mb-3 inline-flex rounded-full border border-gold/30 bg-gold/10 px-3 py-1 text-[11px] font-medium text-gold-2 lg:hidden">Neutral Trade Corridor · Zero-Knowledge Manifest Privacy</span>
       <PageTitle title="Mission Control" sub="Your autonomous agent is monitoring the Asia → Dubai → Africa corridors in real time." />
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {kpis.map((k) => {
