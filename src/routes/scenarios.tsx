@@ -38,23 +38,30 @@ function Scenarios() {
         })}
       </div>
 
-      {scenario && (
+            {scenario && (
         <>
-          <div className="mt-4 grid gap-4 lg:grid-cols-5">
-            <Panel title="Agent Reasoning" action={<AIBadge>{completed ? "Complete" : "Live"}</AIBadge>} className="lg:col-span-2">
-              <p className="mb-3 text-xs text-muted-foreground">{scenario.units} · {scenario.form.weight}t · {scenario.form.volume} CBM</p>
-              <AgentSteps steps={scenario.steps} index={stepIndex} />
-            </Panel>
-            <div className="lg:col-span-3">
-              <RouteMap waypoints={plan?.waypoints} title="Shipment Route" />
+          {running ? (
+            <div className="mt-4 animate-fade-up">
+              <Panel
+                title="Agent Reasoning"
+                action={
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-gold/40 bg-gold/10 px-2.5 py-0.5 text-xs font-medium text-gold-2">
+                    <span className="size-1.5 rounded-full bg-gold-2 animate-ping" />
+                    Live Reasoning
+                  </span>
+                }
+              >
+                <p className="mb-3 text-xs text-muted-foreground">{scenario.units} · {scenario.form.weight}t · {scenario.form.volume} CBM</p>
+                <AgentSteps steps={scenario.steps} index={stepIndex} />
+              </Panel>
             </div>
-          </div>
-          {completed && plan && (
-            <div className="mt-4 space-y-4">
+          ) : plan ? (
+            <div className="mt-4 space-y-4 animate-fade-up">
+              <RouteMap waypoints={plan.waypoints} title="Shipment Route" />
               <RouteResults plan={plan} />
               <PlanCompliance plan={plan} destination={scenario.form.destination} />
             </div>
-          )}
+          ) : null}
         </>
       )}
     </>
