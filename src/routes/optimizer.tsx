@@ -5,7 +5,6 @@ import { RouteResults } from "@/components/dhow/RouteResults";
 import { RouteMap } from "@/components/dhow/RouteMap";
 import { PlanCompliance } from "@/components/dhow/PlanCompliance";
 import { AgentSteps } from "@/components/dhow/AgentSteps";
-import { EventStream } from "@/components/dhow/EventStream";
 import { Panel, PageTitle } from "@/components/dhow/ui";
 import { useDhow } from "@/lib/dhow-store";
 import { seo } from "@/lib/seo";
@@ -20,22 +19,41 @@ function Optimizer() {
   return (
     <>
       <PageTitle title="Autonomous Route & Freight Optimizer" sub="Describe your cargo — Dhow compares air, ocean and multimodal options instantly." />
-      <div className="grid gap-4 lg:grid-cols-3">
-        <Panel title="Cargo Request" icon={<RouteIcon className="size-4" />} className="lg:col-span-2"><CargoFormPanel /></Panel>
-        <EventStream className="h-72 lg:h-auto" />
-      </div>
-      <div className={`mt-4 transition-opacity ${running ? "opacity-50" : ""}`}>
-        {plan ? (
-          <div className="space-y-4">
-            <p className="text-xs text-muted-foreground">Plan source: <b>{planSource === "ai" ? "Dhow AI navigator" : "local simulation"}</b></p>
+            <Panel title="Cargo Request" icon={<RouteIcon className="size-4" />}>
+        <CargoFormPanel />
+      </Panel>
+            <div className="mt-4">
+        {running ? (
+          <Panel
+            title="Dhow AI Agent Reasoning"
+            action={
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-gold/40 bg-gold/10 px-2.5 py-0.5 text-xs font-medium text-gold-2">
+                <span className="size-1.5 rounded-full bg-gold-2 animate-ping" />
+                Active AI Synthesis
+              </span>
+            }
+          >
+            <p className="mb-3 text-xs text-muted-foreground">
+              Analyzing trade corridor & tariff compliance for {form.origin} → {form.destination}…
+            </p>
+            <AgentSteps steps={steps} index={stepIndex} />
+          </Panel>
+        ) : plan ? (
+          <div className="space-y-4 animate-fade-up">
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span>Corridor: <b className="text-foreground">{plan.corridor}</b></span>
+              <span className="rounded-full bg-gold/10 px-2 py-0.5 font-medium text-gold-2">
+                {planSource === "ai" ? "✦ Dhow AI Navigator" : "Simulated Engine"}
+              </span>
+            </div>
             <RouteMap waypoints={plan.waypoints} title="Shipment Route" />
             <RouteResults plan={plan} />
             <PlanCompliance plan={plan} destination={form.destination} />
           </div>
-        ) : running ? (
-          <Panel title="Agent Reasoning"><AgentSteps steps={steps} index={stepIndex} /></Panel>
         ) : (
-          <p className="text-sm text-muted-foreground">Submit a cargo request to generate routing, duties and documents.</p>
+          <div className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+            Submit a cargo request above to generate optimal multimodal routes, tariff duties, and compliance documentation.
+          </div>
         )}
       </div>
     </>
