@@ -2,11 +2,11 @@ import type { ReactNode } from "react";
 
 export function Panel({ title, icon, action, children, className = "" }: { title?: ReactNode; icon?: ReactNode; action?: ReactNode; children: ReactNode; className?: string }) {
   return (
-    <section className={`animate-fade-up rounded-2xl border border-white/10 bg-white/[0.03] p-5 backdrop-blur-md shadow-card sm:p-6 ${className}`}>
+        <section className={`animate-fade-up rounded-2xl border border-border bg-card p-5 backdrop-blur-md shadow-card sm:p-6 ${className}`}>
       {title && (
-        <div className="mb-5 flex items-center gap-2.5 border-b border-white/5 pb-3">
+                <div className="mb-5 flex items-center gap-2.5 border-b border-border/60 pb-3">
           {icon && <span className="text-[#E5C378]">{icon}</span>}
-          <h2 className="font-semibold tracking-tight text-slate-100">{title}</h2>
+                    <h2 className="font-semibold tracking-tight text-foreground">{title}</h2>
           <div className="ml-auto">{action}</div>
         </div>
       )}
