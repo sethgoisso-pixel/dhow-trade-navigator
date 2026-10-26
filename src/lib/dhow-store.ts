@@ -69,7 +69,22 @@ export async function runAgent(scenario: Scenario | null) {
   clearTimeout(timer);
   const my = ++runId;
   const form = scenario ? { ...scenario.form } : { ...state.form };
-  set({ scenario, form, running: true, thinking: !scenario, stepIndex: 0, completed: false, plan: null, steps: scenario ? scenario.steps : ["Contacting Dhow AI trade navigator…"] });
+    set({
+    scenario,
+    form,
+    running: true,
+    thinking: !scenario,
+    stepIndex: 0,
+    completed: false,
+    plan: null,
+    steps: scenario
+      ? scenario.steps
+      : [
+          "Analyzing trade route & carrier schedules…",
+          "Checking tariff codes & customs duties…",
+          "Synthesizing multimodal options via Dubai…",
+        ],
+  });
   pushLog(scenario ? `▶ Demo scenario loaded: ${scenario.title}` : `▶ New cargo request: ${form.origin} → ${form.destination}`, "ok");
   toast.info("Dhow agent is reasoning…", { description: scenario?.subtitle ?? `${form.origin} → ${form.destination}` });
 
