@@ -5,7 +5,7 @@ import { AgentSteps } from "@/components/dhow/AgentSteps";
 import { RouteResults } from "@/components/dhow/RouteResults";
 import { RouteMap } from "@/components/dhow/RouteMap";
 import { AIBadge, Panel, PageTitle } from "@/components/dhow/ui";
-import { ComplianceBlock } from "./customs";
+import { PlanCompliance } from "@/components/dhow/PlanCompliance";
 import { SCENARIOS } from "@/lib/dhow-data";
 import { runAgent, useDhow } from "@/lib/dhow-store";
 import { seo } from "@/lib/seo";
@@ -16,7 +16,7 @@ export const Route = createFileRoute("/scenarios")({
 });
 
 function Scenarios() {
-  const { scenario, running, stepIndex, completed } = useDhow();
+  const { scenario, running, stepIndex, completed, plan } = useDhow();
   return (
     <>
       <PageTitle title="Demo Scenarios" sub="One click: the agent fills the request, reasons step by step, and delivers routing + compliance." />
@@ -46,13 +46,13 @@ function Scenarios() {
               <AgentSteps steps={scenario.steps} index={stepIndex} />
             </Panel>
             <div className="lg:col-span-3">
-              <RouteMap highlight={scenario.id === "solar" ? ["cn-ae", "ae-bj"] : ["sz-ae"]} />
+              <RouteMap waypoints={plan?.waypoints} title="Shipment Route" />
             </div>
           </div>
-          {completed && (
+          {completed && plan && (
             <div className="mt-4 space-y-4">
-              <RouteResults form={scenario.form} />
-              <ComplianceBlock query={scenario.hsQuery} value={scenario.value} />
+              <RouteResults plan={plan} />
+              <PlanCompliance plan={plan} destination={scenario.form.destination} />
             </div>
           )}
         </>

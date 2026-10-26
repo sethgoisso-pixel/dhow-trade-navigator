@@ -2,6 +2,9 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Route as RouteIcon } from "lucide-react";
 import { CargoFormPanel } from "@/components/dhow/CargoForm";
 import { RouteResults } from "@/components/dhow/RouteResults";
+import { RouteMap } from "@/components/dhow/RouteMap";
+import { PlanCompliance } from "@/components/dhow/PlanCompliance";
+import { AgentSteps } from "@/components/dhow/AgentSteps";
 import { EventStream } from "@/components/dhow/EventStream";
 import { Panel, PageTitle } from "@/components/dhow/ui";
 import { useDhow } from "@/lib/dhow-store";
@@ -13,7 +16,7 @@ export const Route = createFileRoute("/optimizer")({
 });
 
 function Optimizer() {
-  const { form, running } = useDhow();
+  const { form, running, plan, steps, stepIndex, planSource } = useDhow();
   return (
     <>
       <PageTitle title="Autonomous Route & Freight Optimizer" sub="Describe your cargo — Dhow compares air, ocean and multimodal options instantly." />
@@ -22,7 +25,18 @@ function Optimizer() {
         <EventStream className="h-72 lg:h-auto" />
       </div>
       <div className={`mt-4 transition-opacity ${running ? "opacity-50" : ""}`}>
-        <RouteResults form={form} />
+        {plan ? (
+          <div className="space-y-4">
+            <p className="text-xs text-muted-foreground">Plan source: <b>{planSource === "ai" ? "Dhow AI navigator" : "local simulation"}</b></p>
+            <RouteMap waypoints={plan.waypoints} title="Shipment Route" />
+            <RouteResults plan={plan} />
+            <PlanCompliance plan={plan} destination={form.destination} />
+          </div>
+        ) : running ? (
+          <Panel title="Agent Reasoning"><AgentSteps steps={steps} index={stepIndex} /></Panel>
+        ) : (
+          <p className="text-sm text-muted-foreground">Submit a cargo request to generate routing, duties and documents.</p>
+        )}
       </div>
     </>
   );
