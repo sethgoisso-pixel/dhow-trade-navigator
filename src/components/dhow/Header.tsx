@@ -1,4 +1,5 @@
 import { Link, useNavigate } from "@tanstack/react-router";
+import { ThemeToggle } from "./ThemeToggle";
 import { PlusCircle, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SCENARIOS } from "@/lib/dhow-data";
@@ -49,13 +50,13 @@ const NAV = [
 export function Header() {
   const navigate = useNavigate();
   return (
-    <header className="sticky top-0 z-40 border-b border-white/10 bg-[#080C14]/90 backdrop-blur-xl text-slate-100 shadow-2xl">
+        <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/85 text-slate-900 shadow-lg backdrop-blur-xl dark:border-white/10 dark:bg-[#080C14]/90 dark:text-slate-100 dark:shadow-2xl">
       <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6">
         <div className="flex items-center gap-3">
           <Link to="/" className="flex items-center gap-3 group">
             <DhowLogo className="size-10 transition-transform group-hover:scale-105" />
             <div className="flex flex-col">
-              <span className="text-lg font-bold tracking-tight text-slate-100 sm:text-xl font-['Syne',sans-serif]">Dhow</span>
+                            <span className="text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100 sm:text-xl font-['Syne',sans-serif]">Dhow</span>
               <span className="text-[9px] font-semibold tracking-widest text-[#E5C378] uppercase">Emirates Trade Intelligence</span>
             </div>
           </Link>
@@ -63,7 +64,7 @@ export function Header() {
             <span className="size-1.5 animate-pulse rounded-full bg-emerald-400" />
             Autonomous v1.0
           </span>
-          <span className="hidden lg:inline-flex items-center rounded-full border border-white/15 bg-white/[0.04] px-2.5 py-0.5 text-[10px] font-medium text-slate-300">
+                    <span className="hidden lg:inline-flex items-center rounded-full border border-slate-200/70 bg-slate-100/70 px-2.5 py-0.5 text-[10px] font-medium text-slate-600 dark:border-white/15 dark:bg-white/[0.04] dark:text-slate-300">
             Neutral Trade Corridor · Zero-Knowledge Manifest Privacy
           </span>
         </div>
@@ -72,7 +73,7 @@ export function Header() {
           <Button
             size="sm"
             variant="outline"
-            className="border-white/15 bg-white/[0.04] text-slate-200 hover:bg-white/10 hover:text-white rounded-xl backdrop-blur-sm"
+                        className="border-slate-200/70 bg-slate-100/60 text-slate-700 hover:bg-slate-200/70 hover:text-slate-900 dark:border-white/15 dark:bg-white/[0.04] dark:text-slate-200 dark:hover:bg-white/10 dark:hover:text-white rounded-xl backdrop-blur-sm"
             onClick={() => navigate({ to: "/optimizer" })}
           >
             <PlusCircle className="size-3.5" />
@@ -87,18 +88,19 @@ export function Header() {
             <Zap className="size-3.5 fill-current" />
             <span className="hidden sm:inline">Hackathon Demo</span>
             <span className="sm:hidden">Demo</span>
-          </Button>
+                    </Button>
+          <ThemeToggle />
         </div>
       </div>
-
+      
       <nav className="mx-auto flex max-w-7xl flex-nowrap gap-1 overflow-x-auto overscroll-x-contain px-4 pb-2 pt-1 [scrollbar-width:none] sm:px-6 [&::-webkit-scrollbar]:hidden">
         {NAV.map((n) => (
           <Link
             key={n.to}
             to={n.to}
             activeOptions={{ exact: true }}
-            className="shrink-0 whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-medium text-slate-400 transition-all hover:bg-white/5 hover:text-slate-200 data-[status=active]:border data-[status=active]:border-[#D4AF37]/40 data-[status=active]:bg-[#D4AF37]/10 data-[status=active]:text-[#E5C378]"
-          >
+                        className="shrink-0 whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-medium text-slate-500 transition-all hover:bg-slate-100 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-slate-200 data-[status=active]:border data-[status=active]:border-[#D4AF37]/40 data-[status=active]:bg-[#D4AF37]/10 data-[status=active]:text-[#E5C378]"
+            >
             {n.label}
           </Link>
         ))}
