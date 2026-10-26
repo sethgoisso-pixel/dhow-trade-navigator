@@ -105,8 +105,14 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
-        <html lang="en" className="dark bg-[#080C14] text-slate-100 min-h-screen">
+    <html lang="en" className="min-h-screen bg-background text-foreground">
       <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "(function(){try{var t=localStorage.getItem('dhow-theme');if(t==='light'){document.documentElement.classList.remove('dark');}else{document.documentElement.classList.add('dark');}}catch(e){document.documentElement.classList.add('dark');}})();",
+          }}
+        />
         <HeadContent />
       </head>
       <body>
