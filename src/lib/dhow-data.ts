@@ -4,6 +4,7 @@ export type CargoForm = {
   cargoType: string;
   weight: number;
   volume: number;
+  declaredValue: number;
   deadline: string;
 };
 
@@ -19,6 +20,10 @@ export type Scenario = {
 };
 
 export const PORTS = [
+  "Douala, Cameroon",
+  "Frankfurt, Germany",
+  "São Paulo, Brazil",
+  "Rotterdam, Netherlands",
   "Ningbo, CN",
   "Shanghai, CN",
   "Shenzhen, CN",
@@ -56,6 +61,7 @@ export const SCENARIOS: Scenario[] = [
       cargoType: "Solar Equipment",
       weight: 38,
       volume: 132,
+      declaredValue: 312000,
       deadline: inDays(32),
     },
     steps: [
@@ -83,6 +89,7 @@ export const SCENARIOS: Scenario[] = [
       cargoType: "Consumer Electronics",
       weight: 6.5,
       volume: 42,
+      declaredValue: 1450000,
       deadline: inDays(9),
     },
     steps: [
