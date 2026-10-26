@@ -1,7 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Clock, Container, TrendingDown, Workflow } from "lucide-react";
 import { RouteMap } from "@/components/dhow/RouteMap";
-import { EventStream } from "@/components/dhow/EventStream";
 import { AIBadge, PageTitle } from "@/components/dhow/ui";
 import { useDhow } from "@/lib/dhow-store";
 import { seo } from "@/lib/seo";
@@ -43,9 +42,8 @@ function MissionControl() {
           return k.link ? <Link key={k.label} to="/dispatch">{body}</Link> : <div key={k.label}>{body}</div>;
         })}
       </div>
-      <div className="mt-4 grid gap-4 lg:grid-cols-5">
-        <div className="lg:col-span-3"><RouteMap /></div>
-        <EventStream className="h-80 lg:col-span-2 lg:h-auto" />
+            <div className="mt-4">
+        <RouteMap />
       </div>
     </>
   );
