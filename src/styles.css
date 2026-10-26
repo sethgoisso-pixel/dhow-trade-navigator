@@ -164,3 +164,15 @@
 @utility animate-dash { stroke-dasharray: 6 8; animation: dash 1.6s linear infinite; }
 @keyframes fade-up { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 @keyframes dash { to { stroke-dashoffset: -28; } }
+
+.dhow-pin { width: 14px; height: 14px; border-radius: 9999px; background: var(--gold); box-shadow: 0 0 0 4px color-mix(in oklab, var(--gold) 30%, transparent); cursor: pointer; }
+.dhow-pin--origin { animation: dhow-pulse 2s infinite; }
+.dhow-pin--hub { width: 16px; height: 16px; border-radius: 2px; transform: rotate(45deg); border: 2px solid var(--navy-foreground); }
+.dhow-pin--destination { background: var(--navy-foreground); border: 3px solid var(--gold); }
+@keyframes dhow-pulse { 50% { box-shadow: 0 0 0 10px color-mix(in oklab, var(--gold) 0%, transparent); } }
+@media print {
+  body * { visibility: hidden !important; }
+  .print-doc, .print-doc * { visibility: visible !important; }
+  .print-doc { position: absolute; left: 0; top: 0; width: 100%; box-shadow: none !important; }
+  .no-print { display: none !important; }
+}

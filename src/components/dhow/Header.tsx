@@ -63,6 +63,9 @@ export function Header() {
             <span className="size-1.5 animate-pulse rounded-full bg-emerald-400" />
             Autonomous v1.0
           </span>
+          <span className="hidden lg:inline-flex items-center rounded-full border border-white/15 bg-white/[0.04] px-2.5 py-0.5 text-[10px] font-medium text-slate-300">
+            Neutral Trade Corridor · Zero-Knowledge Manifest Privacy
+          </span>
         </div>
 
         <div className="flex items-center gap-2">
@@ -88,13 +91,13 @@ export function Header() {
         </div>
       </div>
 
-      <nav className="mx-auto flex max-w-7xl gap-1 overflow-x-auto px-4 pb-2 pt-1 sm:px-6">
+      <nav className="mx-auto flex max-w-7xl flex-nowrap gap-1 overflow-x-auto overscroll-x-contain px-4 pb-2 pt-1 [scrollbar-width:none] sm:px-6 [&::-webkit-scrollbar]:hidden">
         {NAV.map((n) => (
           <Link
             key={n.to}
             to={n.to}
             activeOptions={{ exact: true }}
-            className="whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-medium text-slate-400 transition-all hover:bg-white/5 hover:text-slate-200 data-[status=active]:border data-[status=active]:border-[#D4AF37]/40 data-[status=active]:bg-[#D4AF37]/10 data-[status=active]:text-[#E5C378]"
+            className="shrink-0 whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-medium text-slate-400 transition-all hover:bg-white/5 hover:text-slate-200 data-[status=active]:border data-[status=active]:border-[#D4AF37]/40 data-[status=active]:bg-[#D4AF37]/10 data-[status=active]:text-[#E5C378]"
           >
             {n.label}
           </Link>

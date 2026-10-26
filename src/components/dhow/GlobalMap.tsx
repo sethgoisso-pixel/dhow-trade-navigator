@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import maplibregl from "maplibre-gl";
+import * as maplibregl from "maplibre-gl";
 import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
 import "maplibre-gl/dist/maplibre-gl.css";
 import type { GeoPoint } from "@/lib/dhow-plan";
@@ -19,7 +19,7 @@ export default function GlobalMap({ waypoints }: { waypoints: GeoPoint[] }) {
     if (!m || !m.isStyleLoaded()) return;
     const pts = latest.current;
     const coords = geodesicPath(pts);
-    const data: GeoJSON.Feature = { type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: coords } };
+    const data = { type: "Feature", properties: {}, geometry: { type: "LineString" as const, coordinates: coords } } as const;
     const src = m.getSource("route") as maplibregl.GeoJSONSource | undefined;
     if (src) src.setData(data);
     else {

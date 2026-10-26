@@ -86,8 +86,8 @@ function distanceKm(a: { lat: number; lng: number }, b: { lat: number; lng: numb
 
 /** Deterministic local plan: used for the preset demos and whenever the AI call is unavailable. */
 export function simulatePlan(f: CargoForm, presetSteps?: string[], hsQuery?: string): Plan {
-  const o = lookupCity(f.origin) ?? { ...GEO.shanghai!, name: f.origin.split(",")[0]!.trim() || "Origin" };
-  const d = lookupCity(f.destination) ?? { ...GEO.cotonou!, name: f.destination.split(",")[0]!.trim() || "Destination" };
+  const o = lookupCity(f.origin) ?? { ...GEO["shanghai"]!, name: f.origin.split(",")[0]!.trim() || "Origin" };
+  const d = lookupCity(f.destination) ?? { ...GEO["cotonou"]!, name: f.destination.split(",")[0]!.trim() || "Destination" };
   const hubKey = d.region === "ME" || o.region === "ME" ? "jebel ali" : o.region === "AM" || d.region === "AM" ? "rotterdam" : "jebel ali";
   const hub = { ...GEO[hubKey]!, name: hubKey === "jebel ali" ? "Jebel Ali" : "Rotterdam" };
   const km = distanceKm(o, hub) + distanceKm(hub, d);

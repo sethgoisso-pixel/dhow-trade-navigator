@@ -2,10 +2,10 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { DocGenerator } from "@/components/dhow/DocGenerator";
+import { PlanCompliance } from "@/components/dhow/PlanCompliance";
+import { simulatePlan } from "@/lib/dhow-plan";
 import { AIBadge, Panel, PageTitle } from "@/components/dhow/ui";
-import { HS_DB, classifyHS, dutyBreakdown, fmtUSD } from "@/lib/dhow-data";
+import { classifyHS } from "@/lib/dhow-data";
 import { useDhow } from "@/lib/dhow-store";
 import { seo } from "@/lib/seo";
 
@@ -16,27 +16,8 @@ export const Route = createFileRoute("/customs")({
 
 export function ComplianceBlock({ query, value }: { query: string; value: number }) {
   const { form } = useDhow();
-  const results = classifyHS(query);
-  const top = results[0] ?? { ...HS_DB[0]!, confidence: 0 };
-  const rows = dutyBreakdown(top, form.destination, value);
-  const total = rows.reduce((s, r) => s + r.amount, 0);
-  return (
-    <div className="grid gap-4 lg:grid-cols-2">
-      <Panel title={`Duty & Tariff Breakdown — ${form.destination}`} action={<AIBadge>HS {top.code}</AIBadge>}>
-        <Table>
-          <TableHeader><TableRow><TableHead>Item</TableHead><TableHead>Rate</TableHead><TableHead className="text-right">Amount</TableHead></TableRow></TableHeader>
-          <TableBody>
-            {rows.map((r) => (
-              <TableRow key={r.label}><TableCell>{r.label}</TableCell><TableCell className="font-mono text-xs">{r.rate}</TableCell><TableCell className="text-right font-mono">{fmtUSD(r.amount)}</TableCell></TableRow>
-            ))}
-            <TableRow className="bg-accent font-semibold"><TableCell colSpan={2}>Total landed charges</TableCell><TableCell className="text-right font-mono text-gold-2">{fmtUSD(total)}</TableCell></TableRow>
-          </TableBody>
-        </Table>
-        <p className="mt-2 text-[11px] text-muted-foreground">Based on declared CIF value of {fmtUSD(value)}.</p>
-      </Panel>
-      <DocGenerator form={form} hs={top} value={value} />
-    </div>
-  );
+  const plan = simulatePlan({ ...form, declaredValue: value }, undefined, query);
+  return <PlanCompliance plan={plan} destination={form.destination} />;
 }
 
 function Customs() {

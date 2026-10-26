@@ -110,3 +110,18 @@ cd <repository-name>
 npm i
 npm run dev
 ```
+
+## Why Dubai & The Neutral Trade Corridor
+
+International trade between Asia, Africa, Europe and the Americas is slowed by geopolitical mistrust and data-sharing barriers: shippers hesitate to expose supplier lists, pricing and volumes to foreign intermediaries or rival-state platforms. Dhow leverages Dubai's historic role as a neutral meeting point of these corridors to offer **zero-knowledge manifest routing**: sensitive commercial secrets stay encrypted with the shipper, while compliance-verified proofs (HS classification, valuation, sanctions screening) are shared with carriers and customs so cargo clears seamlessly without revealing the underlying deal.
+
+## Post-championship commercial roadmap
+
+1. **UN ASYCUDA customs APIs** — direct electronic declarations for the 100+ countries running ASYCUDA World (incl. Benin, Cameroon, Ghana).
+2. **Dubai Trade (Mirsal II)** — automated UAE customs declarations and free-zone transfers at Jebel Ali and Dubai Logistics City.
+3. **Carrier EDI / APIs** — live rates, bookings and track & trace with Maersk, MSC and CMA CGM.
+4. On-chain document notarisation for the Dhow Emirates Trade Repository.
+
+## AI navigator
+
+Custom cargo requests are planned by the Lovable AI Gateway (strict JSON schema). If the AI call fails, the app falls back to a local simulation; the two preset demo scenarios always run locally without consuming AI credits.
