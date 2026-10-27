@@ -45,9 +45,11 @@ export default function GlobalMap({ waypoints }: { waypoints: GeoPoint[] }) {
 
   useEffect(() => {
     if (!el.current) return;
+    const styleFor = () => `https://tiles.openfreemap.org/styles/${document.documentElement.classList.contains("dark") ? "dark" : "positron"}`;
+    let current = styleFor();
     const m = new maplibregl.Map({
       container: el.current,
-      style: "https://tiles.openfreemap.org/styles/dark",
+      style: current,
       center: [55, 20],
       zoom: 1.4,
       attributionControl: { compact: true },
@@ -55,8 +57,14 @@ export default function GlobalMap({ waypoints }: { waypoints: GeoPoint[] }) {
     });
     m.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
     m.on("load", draw);
+    m.on("style.load", draw);
     map.current = m;
-    return () => { markers.current.forEach((mk) => mk.remove()); m.remove(); map.current = null; };
+    const obs = new MutationObserver(() => {
+      const next = styleFor();
+      if (next !== current) { current = next; m.setStyle(next); }
+    });
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+    return () => { obs.disconnect(); markers.current.forEach((mk) => mk.remove()); m.remove(); map.current = null; };
   }, []);
 
   useEffect(() => { draw(); }, [waypoints]);
