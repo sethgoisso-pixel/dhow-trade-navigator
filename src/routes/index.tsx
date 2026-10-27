@@ -11,13 +11,13 @@ export const Route = createFileRoute("/")({
 });
 
 function MissionControl() {
-  const { dispatches } = useDhow();
+  const { dispatches, plan, dossierRef } = useDhow();
   const pending = dispatches.filter((d) => d.status === "pending").length;
   const kpis = [
-    { icon: Container, label: "Active Shipments Monitored", value: "24", unit: "Containers", note: "+3 this week" },
-    { icon: TrendingDown, label: "Average Transit Cost Saved", value: "-18.4%", unit: "vs Spot Rate", note: "$212k saved YTD", gold: true },
-    { icon: Clock, label: "Customs Clearance Time", value: "4.2", unit: "hrs", note: "vs 5 days standard" },
-    { icon: Workflow, label: "Dispatches Pending Approval", value: String(pending), unit: "actions", note: "Review now →", link: true },
+    { icon: Container, label: "Active Route Dossier", value: dossierRef ? "1" : "0", unit: dossierRef ? dossierRef : "None", note: plan ? plan.corridor : "Run optimizer →", link: !dossierRef },
+    { icon: TrendingDown, label: "AI Logistics Engine", value: "Ready", unit: "Online", note: "Lovable AI Gateway", gold: true },
+    { icon: Clock, label: "Corridor Protocol", value: "Dubai", unit: "Multimodal", note: "Jebel Ali · DWC Hub" },
+    { icon: Workflow, label: "Dispatches Pending Approval", value: String(pending), unit: "actions", note: pending > 0 ? "Review now →" : "All clear", link: true },
   ];
   return (
     <>
