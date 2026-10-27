@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Route as RouteIcon } from "lucide-react";
+import { Route as RouteIcon, ArrowUpRight, Send } from "lucide-react";
 import { CargoFormPanel } from "@/components/dhow/CargoForm";
 import { RouteResults } from "@/components/dhow/RouteResults";
 import { RouteMap } from "@/components/dhow/RouteMap";
@@ -15,14 +15,16 @@ export const Route = createFileRoute("/optimizer")({
 });
 
 function Optimizer() {
-  const { form, running, plan, steps, stepIndex, planSource, dossierRef } = useDhow();
+  const { form, running, plan, steps, stepIndex, planSource, dossierRef, dispatches } = useDhow();
+  const pendingCount = dispatches.filter((d) => d.status === "pending").length;
+
   return (
     <>
       <PageTitle title="Autonomous Route & Freight Optimizer" sub="Describe your cargo — Dhow compares air, ocean and multimodal options instantly." />
-            <Panel title="Cargo Request" icon={<RouteIcon className="size-4" />}>
+      <Panel title="Cargo Request" icon={<RouteIcon className="size-4" />}>
         <CargoFormPanel />
       </Panel>
-            <div className="mt-4">
+      <div className="mt-4">
         {running ? (
           <Panel
             title="Dhow AI Agent Reasoning"
@@ -40,7 +42,7 @@ function Optimizer() {
           </Panel>
         ) : plan ? (
           <div className="space-y-4 animate-fade-up">
-            <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
               <span>
                 Corridor: <b className="text-foreground">{plan.corridor}</b>
                 {dossierRef && (
@@ -51,6 +53,23 @@ function Optimizer() {
                 {planSource === "ai" ? "✦ Dhow AI Navigator" : "Simulated Engine"}
               </span>
             </div>
+
+            {pendingCount > 0 && (
+              <div className="flex items-center justify-between rounded-xl border border-gold/30 bg-gold/10 p-3 text-xs">
+                <span className="flex items-center gap-2 text-foreground">
+                  <Send className="size-4 text-gold-2" />
+                  <span><b>{pendingCount} operational dispatches</b> prepared for this shipment require operator approval.</span>
+                </span>
+                <Link
+                  to="/dispatch"
+                  className="inline-flex items-center gap-1 font-semibold text-gold-2 underline hover:opacity-80"
+                >
+                  Review Dispatch Tower
+                  <ArrowUpRight className="size-3.5" />
+                </Link>
+              </div>
+            )}
+
             <RouteMap waypoints={plan.waypoints} title="Shipment Route" />
             <RouteResults plan={plan} />
             <PlanCompliance plan={plan} destination={form.destination} />
