@@ -39,6 +39,7 @@ let state: State = {
   dossierRef: null,
   log: [],
     dispatches: [],
+  };
   
 const subs = new Set<() => void>();
 const set = (p: Partial<State>) => {
