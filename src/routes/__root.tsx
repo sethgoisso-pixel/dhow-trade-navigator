@@ -122,6 +122,10 @@ function RootShell({ children }: { children: ReactNode }) {
   );
 }
 
+    function RootComponent() {
+  const { queryClient } = Route.useRouteContext();
+
+  return (
     <QueryClientProvider client={queryClient}>
       <Header />
       <main className="mx-auto max-w-7xl px-4 py-6">
