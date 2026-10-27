@@ -36,8 +36,8 @@ export const getDossier = createServerFn({ method: "GET" })
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: row } = await supabaseAdmin.from("dossiers")
-      .select("reference, origin, destination, cargo, plan, source, created_at")
+      .select("reference, origin, destination, plan, source, created_at")
       .eq("reference", data.reference).maybeSingle();
     if (!row) return null;
-    return { ...row, plan: row.plan as unknown as Plan, cargo: row.cargo as Record<string, unknown> };
+    return { ...row, plan: row.plan as unknown as Plan };
   });
