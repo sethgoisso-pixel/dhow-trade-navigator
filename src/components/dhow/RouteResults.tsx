@@ -14,20 +14,20 @@ export function RouteResults({ plan }: { plan: Plan }) {
         {options.map((o) => {
           const best = o.key === "C";
           return (
-            <div key={o.key} className={`animate-fade-up rounded-xl border p-4 shadow-card ${best ? "border-gold bg-gradient-navy text-navy-foreground shadow-gold" : "bg-card"}`}>
+            <div key={o.key} className={`animate-fade-up rounded-xl border p-4 shadow-card ${best ? "border-gold bg-gold/10 shadow-gold dark:bg-gradient-navy dark:text-navy-foreground" : "bg-card"}`}>
               <div className="flex items-center justify-between">
                 <span className={`text-xs font-semibold ${best ? "text-gold" : "text-muted-foreground"}`}>OPTION {o.key}</span>
                 {best && <AIBadge>Recommended</AIBadge>}
               </div>
               <h3 className="mt-1 font-semibold">{o.name}</h3>
-              <p className={`text-xs ${best ? "text-navy-foreground/60" : "text-muted-foreground"}`}>via {o.via}</p>
+              <p className={`text-xs ${best ? "text-muted-foreground dark:text-navy-foreground/60" : "text-muted-foreground"}`}>via {o.via}</p>
               <div className="mt-4 grid grid-cols-3 gap-2 text-center">
                 {([
                   [Clock, `${Math.round(o.days)}d`, "Transit"],
                   [DollarSign, fmtUSD(o.cost), "Cost"],
                   [Leaf, `${o.co2.toFixed(1)}t`, "CO₂"],
                 ] as const).map(([Icon, v, l]) => (
-                  <div key={l} className={`rounded-lg p-2 ${best ? "bg-navy-foreground/5" : "bg-muted"}`}>
+                  <div key={l} className={`rounded-lg p-2 ${best ? "bg-card/70 dark:bg-navy-foreground/5" : "bg-muted"}`}>
                     <Icon className={`mx-auto size-3.5 ${best ? "text-gold" : "text-muted-foreground"}`} />
                     <div className="mt-1 truncate font-mono text-sm font-semibold">{v}</div>
                     <div className="text-[10px] opacity-60">{l}</div>

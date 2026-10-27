@@ -25,7 +25,7 @@ function Scenarios() {
           const Icon = i === 0 ? Sun : Smartphone;
           const on = scenario?.id === s.id;
           return (
-            <div key={s.id} className={`animate-fade-up flex items-center gap-4 rounded-xl border p-4 shadow-card ${on ? "border-gold bg-gradient-navy text-navy-foreground" : "bg-card"}`}>
+            <div key={s.id} className={`animate-fade-up flex items-center gap-4 rounded-xl border p-4 shadow-card ${on ? "border-gold bg-gold/10 dark:bg-gradient-navy dark:text-navy-foreground" : "bg-card"}`}>
               <span className="grid size-12 shrink-0 place-items-center rounded-xl bg-gradient-gold text-navy"><Icon className="size-6" /></span>
               <div className="min-w-0 flex-1">
                 <div className="text-xs opacity-60">Scenario {i + 1}</div>
