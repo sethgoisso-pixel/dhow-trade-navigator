@@ -14,7 +14,6 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { Header } from "@/components/dhow/Header";
 import { Toaster } from "@/components/ui/sonner";
-import { startAmbient } from "@/lib/dhow-store";
 
 function NotFoundComponent() {
   return (
@@ -123,11 +122,6 @@ function RootShell({ children }: { children: ReactNode }) {
   );
 }
 
-function RootComponent() {
-  const { queryClient } = Route.useRouteContext();
-  useEffect(() => startAmbient(), []);
-
-  return (
     <QueryClientProvider client={queryClient}>
       <Header />
       <main className="mx-auto max-w-7xl px-4 py-6">
