@@ -1,8 +1,7 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import { ThemeToggle } from "./ThemeToggle";
-import { PlusCircle, Zap } from "lucide-react";
+import { PlusCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { SCENARIOS } from "@/lib/dhow-data";
 import { runAgent } from "@/lib/dhow-store";
 
 export function DhowLogo({ className = "size-9" }: { className?: string }) {
@@ -80,15 +79,6 @@ export function Header() {
             <span className="hidden sm:inline">New Cargo Request</span>
             <span className="sm:hidden">New</span>
           </Button>
-          <Button
-            size="sm"
-            className="rounded-xl border border-[#F3E5AB]/40 bg-gradient-to-r from-[#D4AF37] via-[#E5C378] to-[#C59B27] text-[#0A0F1D] font-semibold shadow-gold hover:opacity-95"
-            onClick={() => { runAgent(SCENARIOS[0]!); navigate({ to: "/scenarios" }); }}
-          >
-            <Zap className="size-3.5 fill-current" />
-            <span className="hidden sm:inline">Hackathon Demo</span>
-            <span className="sm:hidden">Demo</span>
-                    </Button>
           <ThemeToggle />
         </div>
       </div>
