@@ -1,53 +1,166 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { Search } from "lucide-react";
+import { Search, Loader2, FileCheck, ShieldAlert, DollarSign, Layers } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { PlanCompliance } from "@/components/dhow/PlanCompliance";
-import { simulatePlan } from "@/lib/dhow-plan";
+import { Button } from "@/components/ui/button";
 import { AIBadge, Panel, PageTitle } from "@/components/dhow/ui";
-import { classifyHS } from "@/lib/dhow-data";
+import { classifyCommodity, type CustomsResult } from "@/lib/dhow-ai.functions";
 import { useDhow } from "@/lib/dhow-store";
 import { seo } from "@/lib/seo";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/customs")({
-  head: () => seo("Customs, HS Code & Compliance — Dhow", "Instant HS code classification, duty and tariff breakdowns, and 1-click trade document generation."),
+  head: () =>
+    seo(
+      "Smart Customs, HS Code & Compliance — Dhow",
+      "Instant real-time HS code classification, official WCO tariff schedules, and automated duty calculations powered by Dhow AI."
+    ),
   component: Customs,
 });
 
 export function ComplianceBlock({ query, value }: { query: string; value: number }) {
-  const { form } = useDhow();
-  const plan = simulatePlan({ ...form, declaredValue: value }, undefined, query);
-  return <PlanCompliance plan={plan} destination={form.destination} />;
+  return null;
 }
 
 function Customs() {
-  const { scenario } = useDhow();
-  const [q, setQ] = useState(scenario?.hsQuery ?? "solar panels");
-  const [value, setValue] = useState(scenario?.value ?? 312000);
-  const results = classifyHS(q);
+  const { form } = useDhow();
+  const [q, setQ] = useState("industrial solar photovoltaic panels");
+  const [destination, setDestination] = useState(form.destination || "Dubai (Jebel Ali / DXB)");
+  const [value, setValue] = useState(250000);
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<CustomsResult | null>(null);
+
+  const handleClassify = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!q.trim()) return;
+    setLoading(true);
+    try {
+      const res = await classifyCommodity({
+        data: {
+          query: q.trim(),
+          destination: destination.trim() || "Dubai (Jebel Ali)",
+          declaredValue: value || 10000,
+        },
+      });
+      setResult(res);
+      toast.success(`Classified as HS ${res.hsCode}`, { description: res.description });
+    } catch (err) {
+      toast.error("Erreur de classification", {
+        description: err instanceof Error ? err.message : "Vérifiez la connexion ou les crédits IA.",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <>
-      <PageTitle title="Smart Customs, HS Code & Compliance" sub="Describe a product — Dhow classifies it and computes landed costs for the destination." />
-      <Panel title="Instant HS Code Classification" icon={<Search className="size-4" />}>
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="e.g. lithium battery, smartphones, steel rebar…" className="flex-1" />
-          <Input type="number" value={value} onChange={(e) => setValue(+e.target.value || 0)} className="sm:w-44" aria-label="CIF value (USD)" />
-        </div>
-        <div className="mt-4 space-y-2">
-          {results.length === 0 && <p className="text-sm text-muted-foreground">No match yet — try "solar", "phone", "rice", "excavator"…</p>}
-          {results.slice(0, 3).map((r, i) => (
-            <div key={r.code} className={`animate-fade-up flex items-center gap-3 rounded-lg border p-3 ${i === 0 ? "border-gold bg-accent" : ""}`}>
-              <span className="font-mono font-semibold">{r.code}</span>
-              <span className="flex-1 text-sm">{r.description}</span>
-              <div className="w-24 text-right">
-                <div className="font-mono text-sm font-semibold">{r.confidence.toFixed(1)}%</div>
-                <div className="mt-1 h-1 rounded-full bg-muted"><div className="h-full rounded-full bg-gradient-gold" style={{ width: `${r.confidence}%` }} /></div>
+      <PageTitle
+        title="Smart Customs, HS Code & Compliance Engine"
+        sub="Describe any commercial commodity — Dhow identifies the 6-digit WCO tariff code and computes real landed duties for your port."
+      />
+
+      <Panel title="Live WCO Commodity Classification" icon={<Search className="size-4" />}>
+        <form onSubmit={handleClassify} className="space-y-3">
+          <div className="grid gap-3 sm:grid-cols-12">
+            <div className="sm:col-span-6">
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Product Description</label>
+              <Input
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="e.g. lithium battery packs, organic green coffee, copper cathodes…"
+              />
+            </div>
+            <div className="sm:col-span-3">
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Destination Port / Hub</label>
+              <Input
+                value={destination}
+                onChange={(e) => setDestination(e.target.value)}
+                placeholder="e.g. Jebel Ali, Rotterdam, Lagos…"
+              />
+            </div>
+            <div className="sm:col-span-3">
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">CIF Declared Value ($ USD)</label>
+              <Input
+                type="number"
+                min="100"
+                value={value}
+                onChange={(e) => setValue(+e.target.value || 0)}
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between pt-1">
+            <span className="text-[11px] text-muted-foreground">
+              Official World Customs Organization (WCO) nomenclature · Real-time inference
+            </span>
+            <Button type="submit" disabled={loading || !q.trim()} className="bg-gradient-gold text-navy font-semibold">
+              {loading ? <><Loader2 className="size-4 animate-spin" /> Classifying…</> : "Classify & Compute Duties"}
+            </Button>
+          </div>
+        </form>
+      </Panel>
+
+      {result && (
+        <div className="mt-4 space-y-4 animate-fade-up">
+          <div className="grid gap-4 md:grid-cols-3">
+            <div className="rounded-xl border border-gold/40 bg-card p-4 shadow-card md:col-span-2">
+              <div className="flex items-center justify-between">
+                <span className="font-mono text-2xl font-bold text-gold-2 sm:text-3xl">
+                  HS {result.hsCode}
+                </span>
+                <span className="rounded-full bg-gold/10 px-2.5 py-0.5 text-xs font-medium text-gold-2">
+                  Confidence: {result.confidence}%
+                </span>
+              </div>
+              <h3 className="mt-2 text-base font-semibold">{result.description}</h3>
+              <p className="mt-1 text-xs text-muted-foreground">Category: {result.category}</p>
+
+              <div className="mt-4 rounded-lg border border-border/80 bg-accent/40 p-3">
+                <div className="flex items-center gap-2 text-xs font-medium text-foreground">
+                  <ShieldAlert className="size-4 text-gold-2" />
+                  Regulatory & Compliance Intelligence
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
+                  {result.regulatoryNotes}
+                </p>
               </div>
             </div>
-          ))}
+
+            <div className="rounded-xl border bg-card p-4 shadow-card">
+              <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                <DollarSign className="size-4 text-gold-2" /> Total Landed Duties & Taxes
+              </div>
+              <div className="mt-2 font-mono text-2xl font-bold text-foreground">
+                ${result.totalDuties.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+              </div>
+              <p className="text-[11px] text-muted-foreground">Based on CIF ${value.toLocaleString("en-US")} USD</p>
+
+              <div className="mt-4 space-y-2 border-t pt-3">
+                {result.tariffs.map((t, idx) => (
+                  <div key={idx} className="flex justify-between text-xs">
+                    <span className="text-muted-foreground">{t.label} ({t.rate})</span>
+                    <span className="font-mono font-medium">${t.amount.toLocaleString("en-US")}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <Panel title="Mandatory Regulatory Documentation for Clearance" icon={<FileCheck className="size-4" />}>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {result.requiredDocuments.map((doc, idx) => (
+                <div key={idx} className="flex items-center gap-2 rounded-lg border border-border/60 bg-accent/20 p-2.5 text-xs">
+                  <span className="grid size-5 place-items-center rounded-full bg-gold/10 font-mono text-[10px] text-gold-2">
+                    {idx + 1}
+                  </span>
+                  <span className="font-medium text-foreground">{doc}</span>
+                </div>
+              ))}
+            </div>
+          </Panel>
         </div>
-      </Panel>
-      <div className="mt-4"><ComplianceBlock query={q} value={value} /></div>
+      )}
     </>
   );
 }
