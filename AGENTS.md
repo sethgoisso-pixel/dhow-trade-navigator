@@ -12,3 +12,4 @@
 ## Architecture rules
 - Shipment plans share one `Plan` shape (src/lib/dhow-plan.ts): AI output (dhow-ai.functions.ts) and the local `simulatePlan` fallback must both produce it, so the UI never depends on the AI being up.
 - The world map uses MapLibre with a keyless OpenFreeMap style, lazy-loaded behind ClientOnly — CARTO tiles need an API key.
+- Shipment dossiers persist in Lovable Cloud via server functions using the admin client (no public table access); dossiers are read only by unguessable reference.
