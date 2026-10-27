@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import { SCENARIOS, type CargoForm, type Scenario } from "./dhow-data";
 import { simulatePlan, type Plan, type PlanSource } from "./dhow-plan";
 import { planShipment } from "./dhow-ai.functions";
+import { saveDossier } from "./dhow-dossiers.functions";
 
 export type LogEntry = { id: number; t: string; msg: string; kind: "info" | "ok" | "warn" | "agent" };
 export type Dispatch = { id: string; title: string; detail: string; saving: string; status: "pending" | "approved" | "rejected" };
@@ -17,6 +18,7 @@ type State = {
   steps: string[];
   plan: Plan | null;
   planSource: PlanSource | null;
+  dossierRef: string | null;
   log: LogEntry[];
   dispatches: Dispatch[];
 };
@@ -34,6 +36,7 @@ let state: State = {
   steps: [],
   plan: null,
   planSource: null,
+  dossierRef: null,
   log: [],
   dispatches: [
     { id: "D-1042", title: "Book 2 × 40' HC on Maersk AE-7", detail: "Ningbo → Jebel Ali, ETD Nov 2", saving: "-12% vs spot", status: "pending" },
@@ -106,7 +109,12 @@ export async function runAgent(scenario: Scenario | null) {
     }
   }
   if (my !== runId) return;
-  set({ plan, planSource: source, steps: plan.reasoningSteps, thinking: false, stepIndex: 0 });
+  set({ plan, planSource: source, steps: plan.reasoningSteps, thinking: false, stepIndex: 0, dossierRef: null });
+  if (!scenario) {
+    saveDossier({ data: { origin: form.origin, destination: form.destination, cargo: form as never, plan: plan as never, source } })
+      .then((r) => { if (my === runId && r.reference) { set({ dossierRef: r.reference }); pushLog(`✓ Dossier saved: ${r.reference}`, "ok"); } })
+      .catch(() => {});
+  }
 
   const steps = plan.reasoningSteps;
   const tick = (i: number) => {

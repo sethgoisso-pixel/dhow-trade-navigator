@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { Route as RouteIcon } from "lucide-react";
 import { CargoFormPanel } from "@/components/dhow/CargoForm";
 import { RouteResults } from "@/components/dhow/RouteResults";
@@ -15,7 +15,7 @@ export const Route = createFileRoute("/optimizer")({
 });
 
 function Optimizer() {
-  const { form, running, plan, steps, stepIndex, planSource } = useDhow();
+  const { form, running, plan, steps, stepIndex, planSource, dossierRef } = useDhow();
   return (
     <>
       <PageTitle title="Autonomous Route & Freight Optimizer" sub="Describe your cargo — Dhow compares air, ocean and multimodal options instantly." />
@@ -41,7 +41,12 @@ function Optimizer() {
         ) : plan ? (
           <div className="space-y-4 animate-fade-up">
             <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span>Corridor: <b className="text-foreground">{plan.corridor}</b></span>
+              <span>
+                Corridor: <b className="text-foreground">{plan.corridor}</b>
+                {dossierRef && (
+                  <> · Dossier <Link to="/dossier/$ref" params={{ ref: dossierRef }} className="font-mono text-gold-2 underline">{dossierRef}</Link></>
+                )}
+              </span>
               <span className="rounded-full bg-gold/10 px-2 py-0.5 font-medium text-gold-2">
                 {planSource === "ai" ? "✦ Dhow AI Navigator" : "Simulated Engine"}
               </span>
