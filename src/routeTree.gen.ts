@@ -14,6 +14,7 @@ import { Route as CustomsRouteImport } from './routes/customs'
 import { Route as DispatchRouteImport } from './routes/dispatch'
 import { Route as OptimizerRouteImport } from './routes/optimizer'
 import { Route as ScenariosRouteImport } from './routes/scenarios'
+import { Route as DossierRefRouteImport } from './routes/dossier.$ref'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -40,6 +41,11 @@ const ScenariosRoute = ScenariosRouteImport.update({
   path: '/scenarios',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DossierRefRoute = DossierRefRouteImport.update({
+  id: '/dossier/$ref',
+  path: '/dossier/$ref',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -47,6 +53,7 @@ export interface FileRoutesByFullPath {
   '/dispatch': typeof DispatchRoute
   '/optimizer': typeof OptimizerRoute
   '/scenarios': typeof ScenariosRoute
+  '/dossier/$ref': typeof DossierRefRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -54,6 +61,7 @@ export interface FileRoutesByTo {
   '/dispatch': typeof DispatchRoute
   '/optimizer': typeof OptimizerRoute
   '/scenarios': typeof ScenariosRoute
+  '/dossier/$ref': typeof DossierRefRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -62,13 +70,33 @@ export interface FileRoutesById {
   '/dispatch': typeof DispatchRoute
   '/optimizer': typeof OptimizerRoute
   '/scenarios': typeof ScenariosRoute
+  '/dossier/$ref': typeof DossierRefRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/customs' | '/dispatch' | '/optimizer' | '/scenarios'
+  fullPaths:
+    | '/'
+    | '/customs'
+    | '/dispatch'
+    | '/optimizer'
+    | '/scenarios'
+    | '/dossier/$ref'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/customs' | '/dispatch' | '/optimizer' | '/scenarios'
-  id: '__root__' | '/' | '/customs' | '/dispatch' | '/optimizer' | '/scenarios'
+  to:
+    | '/'
+    | '/customs'
+    | '/dispatch'
+    | '/optimizer'
+    | '/scenarios'
+    | '/dossier/$ref'
+  id:
+    | '__root__'
+    | '/'
+    | '/customs'
+    | '/dispatch'
+    | '/optimizer'
+    | '/scenarios'
+    | '/dossier/$ref'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -77,6 +105,7 @@ export interface RootRouteChildren {
   DispatchRoute: typeof DispatchRoute
   OptimizerRoute: typeof OptimizerRoute
   ScenariosRoute: typeof ScenariosRoute
+  DossierRefRoute: typeof DossierRefRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -116,6 +145,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ScenariosRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/dossier/$ref': {
+      id: '/dossier/$ref'
+      path: '/dossier/$ref'
+      fullPath: '/dossier/$ref'
+      preLoaderRoute: typeof DossierRefRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -125,6 +161,7 @@ const rootRouteChildren: RootRouteChildren = {
   DispatchRoute: DispatchRoute,
   OptimizerRoute: OptimizerRoute,
   ScenariosRoute: ScenariosRoute,
+  DossierRefRoute: DossierRefRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
