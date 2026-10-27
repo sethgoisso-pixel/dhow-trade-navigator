@@ -102,3 +102,74 @@ export const planShipment = createServerFn({ method: "POST" })
       return { plan: simulatePlan(data), source: "simulated", note: `${msg} — switched to local simulation` };
     }
   });
+
+// --- Ajout à coller à la fin de src/lib/dhow-ai.functions.ts ---
+
+const CustomsInput = z.object({
+  query: z.string().min(2).max(200),
+  destination: z.string().min(2).max(100),
+  declaredValue: z.number().nonnegative().max(1e10),
+});
+
+export type CustomsResult = {
+  hsCode: string;
+  description: string;
+  category: string;
+  confidence: number;
+  regulatoryNotes: string;
+  tariffs: Array<{ label: string; rate: string; amount: number }>;
+  totalDuties: number;
+  requiredDocuments: string[];
+};
+
+const CUSTOMS_SCHEMA = obj({
+  hsCode: S,
+  description: S,
+  category: S,
+  confidence: N,
+  regulatoryNotes: S,
+  tariffs: arr(obj({ label: S, rate: S, amount: N })),
+  totalDuties: N,
+  requiredDocuments: arr(S),
+});
+
+export const classifyCommodity = createServerFn({ method: "POST" })
+  .inputValidator((d) => CustomsInput.parse(d))
+  .handler(async ({ data }): Promise<CustomsResult> => {
+    const apiKey = process.env["LOVABLE_API_KEY"];
+    if (!apiKey) throw new Error("AI gateway non configurée");
+
+    const instructions = `You are Dhow Customs Intelligence, an authoritative trade tariff and HS code classification engine headquartered in Dubai's neutral corridor.
+Given a commodity name/description, a destination port/country, and a declared CIF value in USD:
+1. Determine the accurate 6-digit Harmonized System (HS) code (WCO 2022/2026 nomenclature, formatted like "8541.43").
+2. Provide the official tariff nomenclature description and broad chapter/category.
+3. Calculate realistic destination tariffs based on the destination country (e.g. GCC Common Customs Law for Dubai: 5% duty, 5% VAT; or relevant national tariffs for Africa/Europe/Asia).
+4. Provide regulatory compliance requirements (e.g. conformity certificates, import permits, Dubai Trade / Saber / Soncap / CE declarations).
+5. List strictly mandatory documentation.`;
+
+    const res = await fetch("https://ai.gateway.lovable.dev/v1/responses", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Lovable-API-Key": apiKey,
+        Authorization: `Bearer ${apiKey}`,
+        "X-Lovable-AIG-SDK": "fetch",
+      },
+      body: JSON.stringify({
+        model: "openai/gpt-6-astra",
+        instructions,
+        input: `Commodity: "${data.query}". Destination: "${data.destination}". Declared CIF Value: $${data.declaredValue} USD.`,
+        stream: false,
+        store: false,
+        text: { format: { type: "json_schema", name: "customs_classification", strict: true, schema: CUSTOMS_SCHEMA } },
+      }),
+    });
+
+    if (!res.ok) {
+      throw new Error(`AI error (${res.status})`);
+    }
+
+    const payload = (await res.json()) as { output_text?: string };
+    if (!payload.output_text) throw new Error("Réponse IA vide");
+    return JSON.parse(payload.output_text) as CustomsResult;
+  });
