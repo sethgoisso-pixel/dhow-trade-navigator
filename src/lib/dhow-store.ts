@@ -38,13 +38,8 @@ let state: State = {
   planSource: null,
   dossierRef: null,
   log: [],
-  dispatches: [
-    { id: "D-1042", title: "Book 2 × 40' HC on Maersk AE-7", detail: "Ningbo → Jebel Ali, ETD Nov 2", saving: "-12% vs spot", status: "pending" },
-    { id: "D-1043", title: "Reroute MSC Aurora via Cape of Good Hope", detail: "Red Sea risk index 0.71", saving: "+2d, avoids $4.1k surcharge", status: "pending" },
-    { id: "D-1044", title: "Pre-file Benin customs declaration (GUCE)", detail: "HS 8541.43 — duty exemption", saving: "-3.8 days clearance", status: "pending" },
-  ],
-};
-
+    dispatches: [],
+  
 const subs = new Set<() => void>();
 const set = (p: Partial<State>) => {
   state = { ...state, ...p };
@@ -91,23 +86,21 @@ export async function runAgent(scenario: Scenario | null) {
   pushLog(scenario ? `▶ Demo scenario loaded: ${scenario.title}` : `▶ New cargo request: ${form.origin} → ${form.destination}`, "ok");
   toast.info("Dhow agent is reasoning…", { description: scenario?.subtitle ?? `${form.origin} → ${form.destination}` });
 
-  let plan: Plan;
+    let plan: Plan;
   let source: PlanSource;
-  if (scenario) {
-    plan = simulatePlan(form, scenario.steps, scenario.hsQuery);
-    source = "preset";
-  } else {
-    try {
-      const r = await planShipment({ data: form });
-      plan = r.plan;
-      source = r.source;
-      if (r.note) { pushLog(`⚠ ${r.note}`, "warn"); toast.warning("Using simulated plan", { description: r.note }); }
-    } catch {
-      plan = simulatePlan(form);
-      source = "simulated";
-      pushLog("⚠ AI navigator unreachable — switched to local simulation", "warn");
-    }
+  try {
+    const r = await planShipment({ data: form });
+    plan = r.plan;
+    source = r.source;
+    if (r.note) { pushLog(`ℹ ${r.note}`, "info"); }
+  } catch (err) {
+    set({ running: false, thinking: false });
+    const msg = err instanceof Error ? err.message : "Échec de connexion";
+    pushLog(`✕ AI Engine error: ${msg}`, "warn");
+    toast.error("Erreur de l'agent IA", { description: "Impossible de joindre le modèle IA. Veuillez vérifier vos crédits ou réessayer." });
+    return;
   }
+
   if (my !== runId) return;
   set({ plan, planSource: source, steps: plan.reasoningSteps, thinking: false, stepIndex: 0, dossierRef: null });
   if (!scenario) {
@@ -139,26 +132,6 @@ export function resolveDispatch(did: string, status: "approved" | "rejected") {
   status === "approved" ? toast.success(`${did} dispatched`, { description: d?.title }) : toast(`${did} rejected`);
 }
 
-const AMBIENT: [string, LogEntry["kind"]][] = [
-  ["Analyzing weather disruption in Suez Canal…", "agent"],
-  ["Matched Carrier Maersk with -12% contract rate", "ok"],
-  ["Classified HS Code 8541.43 for Solar Panels", "ok"],
-  ["Jebel Ali T2 berth occupancy at 82% — monitoring", "warn"],
-  ["Container MSKU 771204-3 gated-in at Ningbo-Zhoushan", "info"],
-  ["Re-quoting CMA CGM spot rate CN→AE: $1,940/FEU", "agent"],
-  ["Cotonou port dwell time trending down (-0.6 days)", "info"],
-  ["Detected bunker surcharge change (BAF +3%) — absorbing via contract", "agent"],
-  ["Certificate of Origin (Form E) validated for shipment DH-2291", "ok"],
-];
-let ambient = 0;
-let ambientStarted = false;
 export function startAmbient() {
-  if (ambientStarted) return;
-  ambientStarted = true;
-  AMBIENT.slice(0, 4).forEach(([m, k]) => pushLog(m, k));
-  setInterval(() => {
-    if (state.running) return;
-    const [m, k] = AMBIENT[ambient++ % AMBIENT.length]!;
-    pushLog(m, k);
-  }, 4200);
+  // Désactivé : aucune fausse activité générée en arrière-plan
 }
