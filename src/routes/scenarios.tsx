@@ -18,8 +18,8 @@ import { seo } from "@/lib/seo";
 export const Route = createFileRoute("/scenarios")({
   head: () =>
     seo(
-      "D33 Sovereign Corridor & Architecture — Dhow",
-      "How Dhow leverages Dubai's D33 trade agenda, Jebel Ali Sea-Air hub, and Mirsal II digital customs integration."
+            "Global Trade Architecture — Dhow",
+      "How Dhow leverages sovereign logistics hubs, sea-air multimodal transit, and zero-knowledge trade corridors."
     ),
   component: D33ArchitecturePage,
 });
@@ -53,7 +53,7 @@ function D33ArchitecturePage() {
   ];
 
   const specs = [
-    { label: "Target Trade Volume", value: "32 Trillion AED", detail: "Aligned with Dubai D33 Agenda" },
+    { label: "Global Trade Reach", value: "150+ Hubs", detail: "Neutral multimodal corridors" },
     { label: "Bonded Transfer Window", value: "< 8 Hours", detail: "Jebel Ali seaport to DWC airport" },
     { label: "Transit Time Reduction", value: "60% to 75%", detail: "Compared to pure maritime routes" },
     { label: "Customs Protocol", value: "WCO & Mirsal II", detail: "6-digit Harmonized Tariff System" },
@@ -61,9 +61,9 @@ function D33ArchitecturePage() {
 
   return (
     <div className="space-y-6">
-      <PageTitle
-        title="D33 Sovereign Corridor & Architecture"
-        sub="Connecting Asia, the Gulf, and Africa through Dubai's sovereign physical and digital trade infrastructure."
+            <PageTitle
+        title="Global Trade Corridor & Architecture"
+        sub="Connecting Asia, Europe, the Americas, and Africa through neutral physical and digital trade infrastructure."
       />
 
       {/* Strategic Header Banner */}
@@ -72,7 +72,7 @@ function D33ArchitecturePage() {
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div className="max-w-2xl space-y-2">
               <div className="flex items-center gap-2">
-                <AIBadge>Dubai Economic Agenda D33</AIBadge>
+                                <AIBadge>Autonomous Trade Engine</AIBadge>
                 <span className="text-xs text-muted-foreground">Autonomous Trade Engine</span>
               </div>
               <h2 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl font-['Syne',sans-serif]">
