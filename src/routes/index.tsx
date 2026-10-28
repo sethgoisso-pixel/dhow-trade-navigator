@@ -40,12 +40,12 @@ function MissionControl() {
       unit: "GPT-6 Astra",
       note: "Lovable AI Gateway · Active",
     },
-    {
+        {
       icon: Clock,
-      label: "Sovereign Hub Protocol",
-      value: "Dubai D33",
-      unit: "Jebel Ali / DWC",
-      note: "Neutral Sea-Air Corridor",
+      label: "Global Corridor Engine",
+      value: "Multimodal",
+      unit: "Sea · Air · Land",
+      note: "Neutral Cross-Trade Routing",
     },
     {
       icon: Workflow,
