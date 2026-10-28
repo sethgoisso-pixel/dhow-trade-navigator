@@ -116,10 +116,9 @@ export function DocGenerator({ docs }: { docs: TradeDoc[] }) {
         <DialogContent className="max-h-[92vh] max-w-3xl overflow-y-auto">
           <DialogHeader className="no-print"><DialogTitle>{doc?.title}</DialogTitle></DialogHeader>
           {doc && <OfficialDoc d={doc} />}
-          <div className="no-print flex flex-col gap-2 sm:flex-row">
-            <Button className="flex-1" onClick={() => window.print()}><Printer /> Print / Save as PDF</Button>
-            <Button variant="outline" className="flex-1" onClick={() => doc && copy(doc)}><Copy /> Copy Raw EDI / Text</Button>
-          </div>
+                  <div className="no-print flex flex-col gap-2 sm:flex-row">
+          <Button className="w-full" onClick={() => window.print()}><Printer /> Print / Save as PDF</Button>
+        </div>
         </DialogContent>
       </Dialog>
     </Panel>
