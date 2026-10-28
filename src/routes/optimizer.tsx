@@ -1,3 +1,4 @@
+import { DocGenerator } from "@/components/dhow/DocGenerator";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Route as RouteIcon, ArrowUpRight, Send } from "lucide-react";
 import { CargoFormPanel } from "@/components/dhow/CargoForm";
@@ -73,6 +74,10 @@ function Optimizer() {
             <RouteMap waypoints={plan.waypoints} title="Shipment Route" />
             <RouteResults plan={plan} />
             <PlanCompliance plan={plan} destination={form.destination} />
+                        {plan.documents && plan.documents.length > 0 && (
+              <DocGenerator docs={plan.documents} />
+            )}
+            
           </div>
         ) : (
           <div className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
