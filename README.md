@@ -1,127 +1,58 @@
-# Dhow Trade Navigator
+# Dhow — Autonomous AI Trade & Logistics Navigator
 
-Salut je veux créé un projet pour un concours j'ai reçu un prompt : 
+Dhow is an autonomous, sovereign AI trade intelligence and multimodal logistics agent built for global merchants, freight forwarders, and trade authorities connecting Asia, Europe, the Middle East, and Africa.
 
-Build "Dhow" — an autonomous AI trade & logistics agent designed for global merchants, freight forwarders, and infrastructure builders connecting Dubai, Asia, and Africa.
+---
 
+## Executive Summary
 
+Global supply chains face four critical bottlenecks: opaque multi-carrier spot rates, complex WCO HS customs tariff classifications, geopolitical chokepoints (Suez, Red Sea), and administrative latency. 
 
-### Design & Aesthetic
+Dhow resolves these challenges through an end-to-end autonomous agentic architecture:
+- **Universal Multimodal Route Optimization**: Generates compliant Air, Ocean, and Sea-Air corridors with exact transit days, landed cost models, and carbon indices.
+- **Live WCO Tariff & Compliance Intelligence**: Real-time 6-digit Harmonized System (HS) classification, import duty calculation, and mandatory regulatory checklists.
+- **Official Institutional Documentation**: Automatic generation of UN/EDIFACT-compliant Commercial Invoices, Packing Lists, and Ocean Bills of Lading equipped with verification QR codes.
+- **Human-in-the-Loop Operational Tower**: Autonomous dispatch preparation with strict operator approvals for carrier bookings and customs pre-filings.
+- **Tamper-Proof Dossier Registry**: Every planned shipment is cryptographically referenced (`DHOW-2026-XXXXXXXXXX`) and archived in an immutable cloud audit database.
 
-- Color palette: Deep Maritime Navy (#0B192C, #1E3E62), Crisp Off-White/Slate backgrounds, and Warm Desert Gold (#D4AF37 / #E5A93C) for AI badges, key metrics, and primary action buttons.
+---
 
-- Layout: Sleek, high-density dashboard inspired by modern fintech and freight-tech platforms (Flexport, Stripe, Freightos).
+## Key Capabilities
 
-- Language: 100% English.
+| Module | Purpose | Engine |
+| :--- | :--- | :--- |
+| **Mission Control (`/`)** | Real-time corridor telemetry, interactive MapLibre geodesic routing, and persistent dossier registry | Lovable Cloud + MapLibre GL |
+| **Route Optimizer (`/optimizer`)** | Instant multimodal freight engine comparing fastest, lowest-cost, and optimized corridors | AI Gateway (Strict JSON Schema) |
+| **Customs Engine (`/customs`)** | Commodity classification, landed duty calculation, and import compliance rules | WCO 2022/2026 Knowledge Base |
+| **Autonomous Dispatch (`/dispatch`)** | Human-in-the-loop control tower for operational order execution | Role-based verification |
+| **Sovereign Hub (`/scenarios`)** | Institutional deep dive on Dubai's D33 trade agenda, Jebel Ali (DP World), and DWC Air Corridor | Sovereign Logistics Protocol |
 
+---
 
+## Technical Architecture
 
-### Core Screens & Features
+- **Full-Stack Framework**: TanStack Start v1 (React 19, Vite, Edge-ready).
+- **Styling & Design System**: Tailwind CSS v4 with adaptive Sovereign Dark (*Dubai Midnight Gold*) and Light (*Cloudy Azure Glass*) themes.
+- **Database & Persistence**: Lovable Cloud (PostgreSQL with Row-Level Security, audited server functions).
+- **Mapping & Geodesics**: MapLibre GL with keyless OpenFreeMap dark/light vector tiles and spherical geodesic line generation.
+- **Type Safety**: 100% TypeScript with strict Zod validation schemas.
 
+---
 
+## Local Development
 
-1. Header & Navigation:
+Ensure you have Node.js (v20+) and Bun or npm installed.
 
-   - Logo: "Dhow" with a sleek sail / compass glyph and an active status badge: "Autonomous Agent Active (v1.0)".
+```bash
+# Clone the repository
+git clone <repository-url>
+cd dhow-route
 
-   - Navigation links: Mission Control, Route Optimizer, Customs & Compliance, Autonomous Dispatch, Demo Scenarios.
+# Install dependencies
+bun install   # or npm install
 
-   - Quick action: "Launch New Cargo Request" and a fast 1-click "Load Hackathon Demo Scenario" button.
+# Start development server
+bun dev       # runs at http://localhost:8080
 
-
-
-2. Mission Control (Dashboard Overview):
-
-   - 4 Hero KPI Cards:
-
-     * Active Shipments Monitored (e.g., 24 Containers)
-
-     * Average Transit Cost Saved (e.g., -18.4% vs Spot Rate)
-
-     * Customs Clearance Time (e.g., 4.2 hrs vs 5 days standard)
-
-     * Automated Dispatches Pending Approval (e.g., 3 actions)
-
-   - Live Interactive Shipment Map / Route Visualizer: Showing primary trade corridors (Ningbo/Shanghai → Jebel Ali Port, Dubai → Cotonou / West Africa).
-
-   - Real-time AI Agent Event Stream: Live terminal-style activity feed showing autonomous reasoning steps (e.g., "Analyzing weather disruption in Suez Canal...", "Matched Carrier Maersk with -12% contract rate", "Classified HS Code 8541.43 for Solar Panels").
-
-
-
-3. Autonomous Route & Freight Optimizer:
-
-   - Input Form: Origin Port/City, Destination Port/City, Cargo Type, Weight (tons) & Volume (CBM), Target Deadline.
-
-   - 3 Auto-Generated Dynamic Comparisons:
-
-     * Option A (Fastest Air / Sea-Air via Dubai World Central): Days, Cost, CO2.
-
-     * Option B (Most Cost-Effective Ocean FCL via Jebel Ali): Days, Cost, CO2.
-
-     * Option C (Dhow AI Optimized Multimodal): Smart balance with highest reliability score.
-
-   - Risk & Disruption Index: AI-calculated probability of port congestion and customs delays.
-
-
-
-4. Smart Customs, HS Code & Compliance Engine:
-
-   - Instant HS code search & automatic classification with confidence score.
-
-   - Duty & Tariff breakdown table (Import duties, VAT, port fees).
-
-   - 1-Click Document Generator: Generates ready-to-export Commercial Invoice, Packing List, and draft Bill of Lading with realistic trade details.
-
-
-
-5. Pre-Loaded Hackathon Demo Scenarios (Crucial for Judges):
-
-   - Provide 2 instant 1-click scenarios so any judge can immediately test without typing:
-
-     * Scenario 1: "500 kW Solar Farm Equipment (Ningbo → Jebel Ali → Cotonou)"
-
-     * Scenario 2: "10,000 Consumer Electronics Units (Shenzhen → Dubai Logistics City)"
-
-   - Clicking a scenario fills the form, runs the agent's multi-step reasoning with realistic animated steps, and displays optimal routing + compliance docs.
-
-
-
-Ensure responsive design, clean modular components, smooth tab transit
-
-ions, and interactive toast notifications.
-
-This project was built with [Lovable](https://lovable.dev).
-
-## Build with Lovable
-
-Continue developing this project in the [Lovable editor](https://lovable.dev/projects/a4640067-9424-4f77-a4d0-5906c4778d64).
-
-- **Ship faster**: describe what you want to build and Lovable handles the code.
-- **Stay in sync**: every change made in Lovable is committed straight to this repository.
-- **Full ownership**: this code is yours. Push to `main` on GitHub and your changes sync back into Lovable, ready for your next prompt.
-
-## Development
-
-Prefer working locally? You need Node.js and npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
-
-```sh
-git clone <this-repository-url>
-cd <repository-name>
-npm i
-npm run dev
-```
-
-## Why Dubai & The Neutral Trade Corridor
-
-International trade between Asia, Africa, Europe and the Americas is slowed by geopolitical mistrust and data-sharing barriers: shippers hesitate to expose supplier lists, pricing and volumes to foreign intermediaries or rival-state platforms. Dhow leverages Dubai's historic role as a neutral meeting point of these corridors to offer **zero-knowledge manifest routing**: sensitive commercial secrets stay encrypted with the shipper, while compliance-verified proofs (HS classification, valuation, sanctions screening) are shared with carriers and customs so cargo clears seamlessly without revealing the underlying deal.
-
-## Post-championship commercial roadmap
-
-1. **UN ASYCUDA customs APIs** — direct electronic declarations for the 100+ countries running ASYCUDA World (incl. Benin, Cameroon, Ghana).
-2. **Dubai Trade (Mirsal II)** — automated UAE customs declarations and free-zone transfers at Jebel Ali and Dubai Logistics City.
-3. **Carrier EDI / APIs** — live rates, bookings and track & trace with Maersk, MSC and CMA CGM.
-4. On-chain document notarisation for the Dhow Emirates Trade Repository.
-
-## AI navigator
-
-Custom cargo requests are planned by the Lovable AI Gateway (strict JSON schema). If the AI call fails, the app falls back to a local simulation; the two preset demo scenarios always run locally without consuming AI credits.
+# Run automated test suite
+bunx vitest run
