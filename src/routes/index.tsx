@@ -102,10 +102,11 @@ function MissionControl() {
       </div>
 
       <div className="mt-6">
-        <Panel
-          title="Sovereign Trade Dossier Registry"
-          sub="Persistent shipment dossiers stored in Lovable Cloud database with cryptographic reference and full audit trail."
-        >
+                <Panel title="Sovereign Trade Dossier Registry">
+          <p className="-mt-3 mb-4 text-xs text-muted-foreground">
+            Persistent shipment dossiers stored in Lovable Cloud database with cryptographic reference and full audit trail.
+          </p>
+
           {recentDossiers.length === 0 ? (
             <div className="rounded-xl border border-dashed border-border p-8 text-center">
               <ShieldCheck className="mx-auto size-10 text-muted-foreground opacity-50" />
@@ -135,7 +136,7 @@ function MissionControl() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/50">
-                  {recentDossiers.map((d) => (
+                                    {recentDossiers.map((d: DossierSummary) => (
                     <tr key={d.reference} className="hover:bg-muted/40 transition-colors">
                       <td className="py-3 font-mono font-semibold text-gold-2">
                         <Link to="/dossier/$ref" params={{ ref: d.reference }} className="hover:underline">
