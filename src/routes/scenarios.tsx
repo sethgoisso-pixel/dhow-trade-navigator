@@ -24,7 +24,7 @@ export const Route = createFileRoute("/scenarios")({
   component: D33ArchitecturePage,
 });
 
-export function D33ArchitecturePage() {
+function D33ArchitecturePage() {
   const pillars = [
     {
       icon: Anchor,
