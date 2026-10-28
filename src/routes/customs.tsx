@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Search, Loader2, FileCheck, ShieldAlert, DollarSign, Layers } from "lucide-react";
+import { fetchLiveFxRates, type FxRates } from "@/lib/dhow-fx";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { AIBadge, Panel, PageTitle } from "@/components/dhow/ui";
@@ -29,6 +30,12 @@ function Customs() {
   const [value, setValue] = useState(250000);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<CustomsResult | null>(null);
+  const [fx, setFx] = useState<FxRates | null>(null);
+
+useEffect(() => {
+  fetchLiveFxRates().then(setFx).catch(() => null);
+}, []);
+  
 
   const handleClassify = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -117,24 +124,28 @@ function Customs() {
               <p className="mt-1 text-xs text-muted-foreground">Category: {result.category}</p>
 
               <div className="mt-4 rounded-lg border border-border/80 bg-accent/40 p-3">
-                <div className="flex items-center gap-2 text-xs font-medium text-foreground">
-                  <ShieldAlert className="size-4 text-gold-2" />
-                  Regulatory & Compliance Intelligence
-                </div>
-                <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
-                  {result.regulatoryNotes}
-                </p>
-              </div>
+                            <div className="flex items-center justify-between text-xs font-medium text-muted-foreground">
+              <span className="flex items-center gap-1.5">
+                <DollarSign className="size-4 text-gold-2" /> Total Landed Duties
+              </span>
+              {fx && (
+                <span className="rounded-full bg-gold/10 px-2 py-0.5 text-[10px] font-mono text-gold-2">
+                  Live FX: 1$ = {fx.rates.AED?.toFixed(2) ?? "3.67"} AED
+                </span>
+              )}
             </div>
+            <div className="mt-2 font-mono text-2xl font-bold text-foreground">
+              ${result.totalDuties.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+            </div>
+            {fx && (
+              <div className="mt-1 flex flex-wrap gap-2 text-xs font-mono text-gold-2">
+                <span>≈ {(result.totalDuties * (fx.rates.AED ?? 3.6725)).toLocaleString("en-US", { maximumFractionDigits: 0 })} AED</span>
+                <span>·</span>
+                <span>≈ €{(result.totalDuties * (fx.rates.EUR ?? 0.898)).toLocaleString("en-US", { maximumFractionDigits: 0 })} EUR</span>
+              </div>
+            )}
+            <p className="mt-1 text-[11px] text-muted-foreground">Based on CIF ${value.toLocaleString("en-US")} USD</p>
 
-            <div className="rounded-xl border bg-card p-4 shadow-card">
-              <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
-                <DollarSign className="size-4 text-gold-2" /> Total Landed Duties & Taxes
-              </div>
-              <div className="mt-2 font-mono text-2xl font-bold text-foreground">
-                ${result.totalDuties.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-              </div>
-              <p className="text-[11px] text-muted-foreground">Based on CIF ${value.toLocaleString("en-US")} USD</p>
 
               <div className="mt-4 space-y-2 border-t pt-3">
                 {result.tariffs.map((t, idx) => (
