@@ -36,9 +36,6 @@ function DossierPage() {
         <RouteMap waypoints={d.plan.waypoints} title="Shipment Route" />
         <RouteResults plan={d.plan} />
         <PlanCompliance plan={d.plan} destination={d.destination} />
-                {dossier.plan.documents && dossier.plan.documents.length > 0 && (
-          <DocGenerator docs={dossier.plan.documents} />
-        )}
         
       </div>
     </>
