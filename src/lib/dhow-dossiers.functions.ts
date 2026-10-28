@@ -68,16 +68,16 @@ export const listRecentDossiers = createServerFn({ method: "GET" }).handler(
     }
 
     return (data || []).map((row) => {
-      const plan = row.plan as Record<string, any> | null;
-      const options = plan?.options as Array<{ mode?: string }> | undefined;
+            const plan = row.plan as Record<string, any> | null;
+      const options = plan?.["options"] as Array<{ name?: string }> | undefined;
       return {
         reference: row.reference,
         origin: row.origin,
         destination: row.destination,
         source: row.source,
         createdAt: row.created_at,
-        corridor: (plan?.corridor as string) || `${row.origin} → ${row.destination}`,
-        mode: options?.[0]?.mode || "Multimodal Sea-Air",
+        corridor: (plan?.["corridor"] as string) || `${row.origin} → ${row.destination}`,
+        mode: options?.[0]?.name || "Multimodal Sea-Air via Dubai",
       };
     });
   }
