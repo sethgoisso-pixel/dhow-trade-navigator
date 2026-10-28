@@ -1,3 +1,4 @@
+import { DocGenerator } from "@/components/dhow/DocGenerator";
 import { createFileRoute, notFound } from "@tanstack/react-router";
 import { RouteResults } from "@/components/dhow/RouteResults";
 import { RouteMap } from "@/components/dhow/RouteMap";
@@ -36,6 +37,10 @@ function DossierPage() {
         <RouteMap waypoints={d.plan.waypoints} title="Shipment Route" />
         <RouteResults plan={d.plan} />
         <PlanCompliance plan={d.plan} destination={d.destination} />
+                {dossier.plan.documents && dossier.plan.documents.length > 0 && (
+          <DocGenerator docs={dossier.plan.documents} />
+        )}
+        
       </div>
     </>
   );
