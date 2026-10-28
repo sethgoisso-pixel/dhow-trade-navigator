@@ -1,4 +1,3 @@
-import { DocGenerator } from "@/components/dhow/DocGenerator";
 import { createFileRoute, notFound } from "@tanstack/react-router";
 import { RouteResults } from "@/components/dhow/RouteResults";
 import { RouteMap } from "@/components/dhow/RouteMap";
