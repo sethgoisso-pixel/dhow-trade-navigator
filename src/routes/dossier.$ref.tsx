@@ -85,7 +85,8 @@ function DossierPage() {
                   <AIBadge>Mirsal II Interoperable</AIBadge>
                 </div>
                 <p className="text-[11px] text-muted-foreground">
-                  Corridor: <b className="text-foreground">{d.plan.corridor}</b> · Mode: <b className="text-foreground">{d.plan.bestMode}</b> · Source: <b className="font-mono text-foreground">{d.source}</b>
+                  Corridor: <b className="text-foreground">{d.plan.corridor}</b> · Mode: <b className="text-foreground">{d.plan.options?.[0]?.name ?? "Multimodal Sea-Air"}</b>
+ · Source: <b className="font-mono text-foreground">{d.source}</b>
                 </p>
               </div>
             </div>
