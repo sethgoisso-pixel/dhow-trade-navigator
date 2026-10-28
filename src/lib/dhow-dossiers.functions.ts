@@ -41,3 +41,44 @@ export const getDossier = createServerFn({ method: "GET" })
     if (!row) return null;
     return { ...row, plan: row.plan as unknown as Plan };
   });
+
+export interface DossierSummary {
+  reference: string;
+  origin: string;
+  destination: string;
+  source: string;
+  createdAt: string;
+  corridor: string;
+  mode: string;
+}
+
+/** Fetches recent shipment dossiers stored in Lovable Cloud */
+export const listRecentDossiers = createServerFn({ method: "GET" }).handler(
+  async (): Promise<DossierSummary[]> => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data, error } = await supabaseAdmin
+      .from("dossiers")
+      .select("reference, origin, destination, source, created_at, plan")
+      .order("created_at", { ascending: false })
+      .limit(10);
+
+    if (error) {
+      console.error("Error fetching dossiers:", error);
+      return [];
+    }
+
+    return (data || []).map((row) => {
+      const plan = row.plan as Record<string, any> | null;
+      const options = plan?.options as Array<{ mode?: string }> | undefined;
+      return {
+        reference: row.reference,
+        origin: row.origin,
+        destination: row.destination,
+        source: row.source,
+        createdAt: row.created_at,
+        corridor: (plan?.corridor as string) || `${row.origin} → ${row.destination}`,
+        mode: options?.[0]?.mode || "Multimodal Sea-Air",
+      };
+    });
+  }
+);
