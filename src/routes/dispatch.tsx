@@ -106,7 +106,7 @@ function DispatchPage() {
                         className="bg-gradient-gold text-xs font-semibold text-navy shadow-gold hover:opacity-95"
                         onClick={() => resolveDispatch(d.id, "approved")}
                       >
-                        <Check className="mr-1 size-3.5" /> Approve & Execute
+                        <Check className="mr-1 size-3.5" /> Approve & Lock
                       </Button>
                     </div>
                   ) : (
@@ -119,7 +119,7 @@ function DispatchPage() {
                     >
                       {d.status === "approved" ? (
                         <>
-                          <Check className="size-3.5" /> Executed to EDI
+                          <Check className="size-3.5" /> Approved by Operator
                         </>
                       ) : (
                         <>
