@@ -10,25 +10,22 @@ import { Panel } from "./ui";
 const hash = (s: string) => [...s].reduce((h, c) => (h * 33 + c.charCodeAt(0)) >>> 0, 5381);
 
 function VerifyQR({ seed }: { seed: string }) {
-  const n = 21;
-  let h = hash(seed);
-  const cells: [number, number][] = [];
-  for (let y = 0; y < n; y++)
-    for (let x = 0; x < n; x++) {
-      const finder = (x < 7 && y < 7) || (x >= n - 7 && y < 7) || (x < 7 && y >= n - 7);
-      if (finder) {
-        const fx = x >= n - 7 ? x - (n - 7) : x, fy = y >= n - 7 ? y - (n - 7) : y;
-        if (fx === 0 || fy === 0 || fx === 6 || fy === 6 || (fx >= 2 && fx <= 4 && fy >= 2 && fy <= 4)) cells.push([x, y]);
-        continue;
-      }
-      h = (h * 1103515245 + 12345) >>> 0;
-      if (h & 0x10000) cells.push([x, y]);
-    }
+  // Génère un QR code direct via l'API QR sécurisée standard sans dépendance lourde
+  const verifyUrl = typeof window !== "undefined" 
+    ? `${window.location.origin}/dossier/${seed}`
+    : `https://dhow-route.lovable.app/dossier/${seed}`;
+  const qrEndpoint = `https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(verifyUrl)}&bgcolor=ffffff&color=0b192c&margin=1`;
+
   return (
-    <svg viewBox={`-1 -1 ${n + 2} ${n + 2}`} className="size-20" aria-label="Verification code">
-      <rect x="-1" y="-1" width={n + 2} height={n + 2} fill="white" />
-      {cells.map(([x, y]) => <rect key={`${x}-${y}`} x={x} y={y} width="1" height="1" fill="#0f172a" />)}
-    </svg>
+    <div className="flex flex-col items-center gap-1 text-center">
+      <img
+        src={qrEndpoint}
+        alt={`Verification QR for ${seed}`}
+        className="size-20 rounded border border-slate-300 bg-white p-0.5 shadow-sm"
+        loading="lazy"
+      />
+      <span className="font-mono text-[8px] text-slate-500 uppercase tracking-tighter">Scan to Verify</span>
+    </div>
   );
 }
 
