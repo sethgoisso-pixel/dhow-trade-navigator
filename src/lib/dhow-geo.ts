@@ -31,3 +31,43 @@ export function geodesicPath(pts: { lat: number; lng: number }[], steps = 64): [
   }
   return out;
 }
+
+export type RoutePhysics = {
+  totalKm: number;
+  totalNm: number;
+  seaHours: number;
+  seaDays: number;
+  airHours: number;
+};
+
+/** Calcule la distance orthodromique réelle (formule de Haversine) entre 2 coordonnées */
+export function haversineKm(p1: { lat: number; lng: number }, p2: { lat: number; lng: number }): number {
+  const R = 6371; // Rayon moyen de la Terre en km
+  const dLat = ((p2.lat - p1.lat) * Math.PI) / 180;
+  const dLng = ((p2.lng - p1.lng) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((p1.lat * Math.PI) / 180) *
+      Math.cos((p2.lat * Math.PI) / 180) *
+      Math.sin(dLng / 2) *
+      Math.sin(dLng / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return Math.round(R * c);
+}
+
+/** Calcule les métriques de physique de transport pour l'ensemble des escales */
+export function computeRoutePhysics(pts: { lat: number; lng: number }[]): RoutePhysics {
+  if (!pts || pts.length < 2) {
+    return { totalKm: 0, totalNm: 0, seaHours: 0, seaDays: 0, airHours: 0 };
+  }
+  let totalKm = 0;
+  for (let i = 0; i < pts.length - 1; i++) {
+    totalKm += haversineKm(pts[i]!, pts[i + 1]!);
+  }
+  const totalNm = Math.round(totalKm / 1.852); // 1 Mille Nautique = 1.852 km
+  const seaHours = Math.round(totalKm / 36.1); // ~19.5 nœuds vitesse porte-conteneurs
+  const seaDays = Number((seaHours / 24).toFixed(1));
+  const airHours = Number((totalKm / 898).toFixed(1)); // ~485 nœuds avion cargo
+
+  return { totalKm, totalNm, seaHours, seaDays, airHours };
+}
