@@ -1,6 +1,7 @@
+import { useState, useEffect } from "react";
 import { DocGenerator } from "@/components/dhow/DocGenerator";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Route as RouteIcon, ArrowUpRight, Send } from "lucide-react";
+import { Route as RouteIcon, ArrowUpRight, Send, Waves } from "lucide-react";
 import { CargoFormPanel } from "@/components/dhow/CargoForm";
 import { RouteResults } from "@/components/dhow/RouteResults";
 import { RouteMap } from "@/components/dhow/RouteMap";
@@ -9,6 +10,7 @@ import { AgentSteps } from "@/components/dhow/AgentSteps";
 import { Panel, PageTitle } from "@/components/dhow/ui";
 import { useDhow } from "@/lib/dhow-store";
 import { seo } from "@/lib/seo";
+import { fetchMaritimeWeather, type ChokepointWeather } from "@/lib/dhow-weather";
 
 export const Route = createFileRoute("/optimizer")({
   head: () => seo("Route & Freight Optimizer — Dhow", "Compare fastest, cheapest and AI-optimized multimodal routes with live risk and disruption scoring."),
@@ -18,7 +20,49 @@ export const Route = createFileRoute("/optimizer")({
 function Optimizer() {
   const { form, running, plan, steps, stepIndex, planSource, dossierRef, dispatches } = useDhow();
   const pendingCount = dispatches.filter((d) => d.status === "pending").length;
+    const [weather, setWeather] = useState<ChokepointWeather[]>([]);
 
+  useEffect(() => {
+    fetchMaritimeWeather().then(setWeather).catch(() => {});
+  }, []);
+
+        {weather.length > 0 && (
+        <div className="mt-3 rounded-xl border border-border bg-card/60 p-3 backdrop-blur-md">
+          <div className="mb-2 flex items-center justify-between text-xs">
+            <span className="flex items-center gap-1.5 font-medium text-foreground">
+              <Waves className="size-3.5 text-sky-400" />
+              Live Strategic Chokepoint Telemetry
+            </span>
+            <span className="font-mono text-[10px] text-muted-foreground">
+              Open-Meteo Marine · NOAA/Copernicus
+            </span>
+          </div>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+            {weather.map((cp) => (
+              <div
+                key={cp.id}
+                className="flex items-center justify-between rounded-lg border border-border/60 bg-background/50 px-2.5 py-1.5 text-xs"
+              >
+                <div>
+                  <div className="font-medium text-foreground">{cp.name}</div>
+                  <div className="text-[10px] text-muted-foreground">{cp.zone}</div>
+                </div>
+                <div className="text-right">
+                  <div className="font-mono font-semibold text-foreground">
+                    {cp.waveHeight}m <span className="text-[10px] font-normal text-muted-foreground">swell</span>
+                  </div>
+                  <div className={`text-[10px] font-medium ${
+                    cp.status === "Calm" ? "text-emerald-500" : cp.status === "Moderate" ? "text-amber-500" : "text-rose-500"
+                  }`}>
+                    ● {cp.status}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+  
   return (
     <>
       <PageTitle title="Autonomous Route & Freight Optimizer" sub="Describe your cargo — Dhow compares air, ocean and multimodal options instantly." />
