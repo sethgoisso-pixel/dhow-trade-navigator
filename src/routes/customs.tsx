@@ -14,7 +14,7 @@ export const Route = createFileRoute("/customs")({
   head: () =>
     seo(
       "Smart Customs, HS Code & Compliance — Dhow",
-      "Instant real-time HS code classification, official WCO tariff schedules, and automated duty calculations powered by Dhow AI."
+      "HS-2022 code search verified against the WCO nomenclature, with indicative duty and VAT estimates for your destination."
     ),
   component: Customs,
 });
@@ -52,8 +52,8 @@ useEffect(() => {
       setResult(res);
       toast.success(`Classified as HS ${res.hsCode}`, { description: res.description });
     } catch (err) {
-      toast.error("Erreur de classification", {
-        description: err instanceof Error ? err.message : "Vérifiez la connexion ou les crédits IA.",
+      toast.error("Classification failed", {
+        description: err instanceof Error ? err.message : "Check the connection.",
       });
     } finally {
       setLoading(false);
@@ -64,10 +64,10 @@ useEffect(() => {
     <>
       <PageTitle
         title="Smart Customs, HS Code & Compliance Engine"
-        sub="Describe any commercial commodity — Dhow identifies the 6-digit WCO tariff code and computes real landed duties for your port."
+        sub="Describe a commodity. Dhow searches the 5,613 HS-2022 subheadings, lets the AI choose among real candidates, then computes indicative duties with code, not with the model."
       />
 
-      <Panel title="Live WCO Commodity Classification" icon={<Search className="size-4" />}>
+      <Panel title="HS Classification (verified against HS-2022)" icon={<Search className="size-4" />}>
         <form onSubmit={handleClassify} className="space-y-3">
           <div className="grid gap-3 sm:grid-cols-12">
             <div className="sm:col-span-6">
@@ -87,7 +87,7 @@ useEffect(() => {
               />
             </div>
             <div className="sm:col-span-3">
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">CIF Declared Value ($ USD)</label>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Goods value ($ USD)</label>
               <Input
                 type="number"
                 min="100"
@@ -99,7 +99,7 @@ useEffect(() => {
 
           <div className="flex items-center justify-between pt-1">
             <span className="text-[11px] text-muted-foreground">
-              Official World Customs Organization (WCO) nomenclature · Real-time inference
+              WCO HS-2022 nomenclature · AI picks among verified candidates · Indicative, not a binding ruling
             </span>
             <Button type="submit" disabled={loading || !q.trim()} className="bg-gradient-gold text-navy font-semibold">
               {loading ? <><Loader2 className="size-4 animate-spin" /> Classifying…</> : "Classify & Compute Duties"}
@@ -117,7 +117,7 @@ useEffect(() => {
                   HS {result.hsCode}
                 </span>
                 <span className="rounded-full bg-gold/10 px-2.5 py-0.5 text-xs font-medium text-gold-2">
-                  Confidence: {result.confidence}%
+                  Match score: {result.confidence}%
                 </span>
               </div>
               <h3 className="mt-2 text-base font-semibold">{result.description}</h3>
@@ -137,11 +137,11 @@ useEffect(() => {
             <div className="rounded-xl border bg-card p-4 shadow-card">
               <div className="flex items-center justify-between text-xs font-medium text-muted-foreground">
                 <span className="flex items-center gap-1.5">
-                  <DollarSign className="size-4 text-gold-2" /> Total Landed Duties & Taxes
+                  <DollarSign className="size-4 text-gold-2" /> Estimated duties, taxes & fees
                 </span>
                 {fx && (
                   <span className="rounded-full bg-gold/10 px-2 py-0.5 text-[10px] font-mono text-gold-2">
-                    Live FX: 1$ = {fx.rates.AED?.toFixed(2) ?? "3.67"} AED
+                    {fx.live ? "FX rate (open.er-api.com)" : "FX fallback table"}: 1$ = {fx.rates["AED"]?.toFixed(2) ?? "3.67"} AED
                   </span>
                 )}
               </div>
@@ -150,12 +150,12 @@ useEffect(() => {
               </div>
               {fx && (
                 <div className="mt-1 flex flex-wrap gap-2 text-xs font-mono text-gold-2">
-                  <span>≈ {(result.totalDuties * (fx.rates.AED ?? 3.6725)).toLocaleString("en-US", { maximumFractionDigits: 0 })} AED</span>
+                  <span>≈ {(result.totalDuties * (fx.rates["AED"] ?? 3.6725)).toLocaleString("en-US", { maximumFractionDigits: 0 })} AED</span>
                   <span>·</span>
-                  <span>≈ €{(result.totalDuties * (fx.rates.EUR ?? 0.898)).toLocaleString("en-US", { maximumFractionDigits: 0 })} EUR</span>
+                  <span>≈ €{(result.totalDuties * (fx.rates["EUR"] ?? 0.898)).toLocaleString("en-US", { maximumFractionDigits: 0 })} EUR</span>
                 </div>
               )}
-              <p className="mt-1 text-[11px] text-muted-foreground">Based on CIF ${value.toLocaleString("en-US")} USD</p>
+              <p className="mt-1 text-[11px] text-muted-foreground">Goods value ${value.toLocaleString("en-US")} USD (CIF assumed at +6%)</p>
 
               <div className="mt-4 space-y-2 border-t pt-3">
                 {result.tariffs.map((t, idx) => (
@@ -169,7 +169,18 @@ useEffect(() => {
 
           </div>
 
-          <Panel title="Mandatory Regulatory Documentation for Clearance" icon={<FileCheck className="size-4" />}>
+          <div className="rounded-xl border border-dashed bg-card/60 p-3 text-[11px] leading-relaxed text-muted-foreground">
+            <div className="mb-1 font-medium text-foreground">
+              {result.source === "ai" ? "AI-assisted, code-verified" : "Search match, no AI used"}
+            </div>
+            <ul className="list-disc space-y-0.5 pl-4">
+              {result.notes.map((n, i) => (
+                <li key={i}>{n}</li>
+              ))}
+            </ul>
+          </div>
+
+          <Panel title="Typical Documents for Clearance" icon={<FileCheck className="size-4" />}>
             <div className="grid gap-2 sm:grid-cols-2">
               {result.requiredDocuments.map((doc, idx) => (
                 <div key={idx} className="flex items-center gap-2 rounded-lg border border-border/60 bg-accent/20 p-2.5 text-xs">

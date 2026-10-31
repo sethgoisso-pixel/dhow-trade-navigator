@@ -81,8 +81,8 @@ function DossierPage() {
               </div>
               <div className="space-y-0.5">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-semibold text-foreground">Verified Sovereign Trade Record</span>
-                  <AIBadge>Mirsal II Interoperable</AIBadge>
+                  <span className="text-xs font-semibold text-foreground">Saved Trade Dossier</span>
+                  <AIBadge>Draft · not submitted</AIBadge>
                 </div>
                 <p className="text-[11px] text-muted-foreground">
                   Corridor: <b className="text-foreground">{d.plan.corridor}</b> · Mode: <b className="text-foreground">{d.plan.options?.[0]?.name ?? "Multimodal Sea-Air"}</b>

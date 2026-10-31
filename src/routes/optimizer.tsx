@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { DocGenerator } from "@/components/dhow/DocGenerator";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Route as RouteIcon, ArrowUpRight, Send, Waves } from "lucide-react";
 import { CargoFormPanel } from "@/components/dhow/CargoForm";
@@ -31,10 +30,10 @@ function Optimizer() {
           <div className="mb-2 flex items-center justify-between text-xs">
             <span className="flex items-center gap-1.5 font-medium text-foreground">
               <Waves className="size-3.5 text-sky-400" />
-              Live Strategic Chokepoint Telemetry
+              {weather.every((cp) => cp.live) ? "Live Chokepoint Sea State" : "Chokepoint Sea State (fallback values: API unreachable)"}
             </span>
             <span className="font-mono text-[10px] text-muted-foreground">
-              Open-Meteo Marine · NOAA/Copernicus
+              Open-Meteo Marine API
             </span>
           </div>
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
@@ -95,7 +94,7 @@ function Optimizer() {
                 )}
               </span>
               <span className="rounded-full bg-gold/10 px-2 py-0.5 font-medium text-gold-2">
-                {planSource === "ai" ? "✦ Dhow AI Navigator" : "Simulated Engine"}
+                {planSource === "ai" ? "✦ Dhow Agent (AI + verified tools)" : planSource === "tools" ? "Tool pipeline (no AI)" : planSource === "preset" ? "Preset scenario" : "Simulated Engine"}
               </span>
             </div>
 
@@ -118,10 +117,6 @@ function Optimizer() {
             <RouteMap waypoints={plan.waypoints} title="Shipment Route" />
             <RouteResults plan={plan} />
             <PlanCompliance plan={plan} destination={form.destination} />
-                        {plan.documents && plan.documents.length > 0 && (
-              <DocGenerator docs={plan.documents} />
-            )}
-            
           </div>
         ) : (
           <div className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">

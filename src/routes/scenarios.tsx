@@ -18,8 +18,8 @@ import { seo } from "@/lib/seo";
 export const Route = createFileRoute("/scenarios")({
   head: () =>
     seo(
-            "Global Trade Architecture — Dhow",
-      "How Dhow leverages sovereign logistics hubs, sea-air multimodal transit, and zero-knowledge trade corridors."
+      "Dubai Corridor & Agent Architecture — Dhow",
+      "How Dhow fits Dubai's D33 trade agenda and the Jebel Ali sea / DWC air corridor, and how its agent works."
     ),
   component: D33ArchitecturePage,
 });
@@ -30,40 +30,41 @@ function D33ArchitecturePage() {
       icon: Anchor,
       title: "Jebel Ali Port (DP World)",
       badge: "Deepwater Hub",
-      desc: "Handles over 14M TEU annually. Direct feeder connectivity to 150+ ports across the Indian Ocean, East Africa, and South Asia.",
+      desc: "Dubai's deep-water hub and the default transshipment point in Dhow's route model for Asia → Africa cargo.",
     },
     {
       icon: Plane,
       title: "Al Maktoum Int'l (DWC)",
       badge: "Air Cargo Epicenter",
-      desc: "Ultra-fast bonded transit corridor (<8 hours from berth to tarmac via Emirates SkyCargo) cutting transit times by up to 14 days.",
+      desc: "The air leg of the sea-air option: Dhow compares it with pure sea routes using a distance-based estimate, not carrier schedules.",
     },
     {
       icon: ShieldCheck,
-      title: "Dubai Trade Mirsal II",
-      badge: "Digital Clearance",
-      desc: "Pre-filing electronic customs manifests with automated Harmonized System tariff assignment and WCO SAFE compliance.",
+      title: "Customs pre-declaration drafts",
+      badge: "Roadmap: Mirsal II",
+      desc: "Dhow prepares HS-coded draft declarations for broker review. It is not connected to Dubai Trade / Mirsal II and submits nothing today.",
     },
     {
       icon: Lock,
-      title: "Zero-Knowledge Manifests",
-      badge: "Neutral Escrow",
-      desc: "Commercial confidentiality protocols safeguarding merchant routes, margins, and trade flows across geopolitical chokepoints.",
+      title: "Privacy-preserving manifests",
+      badge: "Roadmap",
+      desc: "Planned: share only the fields a counterparty needs, with hash commitments. Real zero-knowledge proofs are a later phase. Not implemented yet.",
     },
   ];
 
   const specs = [
-    { label: "Global Trade Reach", value: "150+ Hubs", detail: "Neutral multimodal corridors" },
-    { label: "Bonded Transfer Window", value: "< 8 Hours", detail: "Jebel Ali seaport to DWC airport" },
-    { label: "Transit Time Reduction", value: "60% to 75%", detail: "Compared to pure maritime routes" },
-    { label: "Customs Protocol", value: "WCO & Mirsal II", detail: "6-digit Harmonized Tariff System" },
+    { label: "Dubai D33 trade target", value: "AED 32 tn", detail: "Foreign trade goal set by the D33 agenda" },
+    { label: "HS-2022 subheadings searched", value: "5,613", detail: "UN Comtrade open data, verified by code" },
+    { label: "Agent tools", value: "5", detail: "Port, HS search, compliance, routes, landed cost" },
+    { label: "Automated tests", value: "13", detail: "Tools, verifier, agent loop and fallback" },
   ];
+
 
   return (
     <div className="space-y-6">
-            <PageTitle
-        title="Global Trade Corridor & Architecture"
-        sub="Connecting Asia, Europe, the Americas, and Africa through neutral physical and digital trade infrastructure."
+      <PageTitle
+        title="Dubai Corridor & Agent Architecture"
+        sub="Connecting Asia, the Gulf and Africa through Dubai, with an agent that shows its work."
       />
 
       {/* Strategic Header Banner */}
@@ -72,14 +73,14 @@ function D33ArchitecturePage() {
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div className="max-w-2xl space-y-2">
               <div className="flex items-center gap-2">
-                                <AIBadge>Autonomous Trade Engine</AIBadge>
-                <span className="text-xs text-muted-foreground">Autonomous Trade Engine</span>
+                <AIBadge>Dubai Economic Agenda D33</AIBadge>
+                <span className="text-xs text-muted-foreground">Tool-using trade agent</span>
               </div>
               <h2 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl font-['Syne',sans-serif]">
-                The Neutral Pivot for Global Commerce
+                Dubai as the pivot for Asia → Africa trade
               </h2>
               <p className="text-sm leading-relaxed text-muted-foreground">
-                As geopolitical tensions disrupt historical chokepoints like the Red Sea, Dhow positions Dubai as the world's most resilient multimodal pivot. By combining sea transit from Asia with air dispatch to Africa and Europe, Dhow executes trade routes that traditional forwarders take days to assemble.
+                When chokepoints such as the Red Sea or Hormuz are disrupted, a trader in Dubai has to compare sea, air and sea-air options fast. Dhow assembles those options, the duty estimate and the draft paperwork in one run, and shows every tool call it made, so a forwarder can check it instead of trusting it.
               </p>
             </div>
             <div className="flex shrink-0 flex-col gap-2">
@@ -123,7 +124,7 @@ function D33ArchitecturePage() {
       </div>
 
       {/* Architecture Metrics Grid */}
-      <Panel title="Corridor Telemetry & Performance Targets" icon={<Cpu className="size-4" />}>
+      <Panel title="Facts & Figures" icon={<Cpu className="size-4" />}>
         <div className="grid gap-4 divide-y divide-border sm:grid-cols-4 sm:divide-x sm:divide-y-0 pt-2">
           {specs.map((s, idx) => (
             <div key={s.label} className={idx === 0 ? "" : "sm:pl-4 pt-3 sm:pt-0"}>
@@ -136,13 +137,13 @@ function D33ArchitecturePage() {
       </Panel>
 
       {/* Operational Flow */}
-      <Panel title="Autonomous Execution Workflow" icon={<Layers className="size-4" />}>
+      <Panel title="How a run works" icon={<Layers className="size-4" />}>
         <div className="space-y-3 pt-1">
           <div className="flex items-start gap-3 rounded-lg border border-border/60 bg-muted/30 p-3">
             <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-gold/20 font-mono text-xs font-bold text-gold-2">1</span>
             <div>
               <h4 className="text-xs font-semibold text-foreground">Cargo Manifest Ingestion & Geo-Routing</h4>
-              <p className="mt-0.5 text-[11px] text-muted-foreground">The merchant inputs origin, destination, and commodity specifications. The agent parses transit corridors and computes optimal multimodal alternatives.</p>
+              <p className="mt-0.5 text-[11px] text-muted-foreground">The trader enters origin, destination, goods, value and deadline. The agent resolves the ports and estimates route options through a hub, including chokepoint exposure.</p>
             </div>
           </div>
 
@@ -150,23 +151,23 @@ function D33ArchitecturePage() {
             <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-gold/20 font-mono text-xs font-bold text-gold-2">2</span>
             <div>
               <h4 className="text-xs font-semibold text-foreground">WCO 6-Digit Tariff & Customs Synthesis</h4>
-              <p className="mt-0.5 text-[11px] text-muted-foreground">The AI classifies the commodity into official Harmonized System codes, checks import tariffs at the destination port, and generates landed cost assessments.</p>
+              <p className="mt-0.5 text-[11px] text-muted-foreground">The AI picks among real HS-2022 candidates, a verifier confirms the code exists and keeps the duty on the legal bands of the destination customs union, and code computes the landed cost estimate.</p>
             </div>
           </div>
 
           <div className="flex items-start gap-3 rounded-lg border border-border/60 bg-muted/30 p-3">
             <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-gold/20 font-mono text-xs font-bold text-gold-2">3</span>
             <div>
-              <h4 className="text-xs font-semibold text-foreground">Institutional Document & QR Stamping</h4>
-              <p className="mt-0.5 text-[11px] text-muted-foreground">Commercial Invoice, Bill of Lading, and Certificate of Origin are synthesized with a cryptographic SHA-256 seal and a scannable verification QR code.</p>
+              <h4 className="text-xs font-semibold text-foreground">Draft documents with a content fingerprint</h4>
+              <p className="mt-0.5 text-[11px] text-muted-foreground">Commercial invoice, packing list and bill of lading drafts are generated with placeholders for unknown parties, plus a SHA-256 fingerprint of the content to detect later changes. They are not official documents.</p>
             </div>
           </div>
 
           <div className="flex items-start gap-3 rounded-lg border border-border/60 bg-muted/30 p-3">
             <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-gold/20 font-mono text-xs font-bold text-gold-2">4</span>
             <div>
-              <h4 className="text-xs font-semibold text-foreground">Human-in-the-Loop Autonomous Dispatch</h4>
-              <p className="mt-0.5 text-[11px] text-muted-foreground">Concrete booking orders and digital pre-filings are staged in the Autonomous Dispatch Tower where a human controller signs off before execution.</p>
+              <h4 className="text-xs font-semibold text-foreground">Human-in-the-loop dispatch</h4>
+              <p className="mt-0.5 text-[11px] text-muted-foreground">Booking requests and customs pre-declaration drafts are staged in the dispatch tower. A human approves or rejects them. Nothing is transmitted to carriers or customs yet.</p>
             </div>
           </div>
         </div>

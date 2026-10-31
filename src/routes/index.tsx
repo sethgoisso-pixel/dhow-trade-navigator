@@ -14,7 +14,7 @@ export const Route = createFileRoute("/")({
   head: () =>
     seo(
       "Mission Control — Dhow AI Logistics Agent",
-      "Live overview of shipments, savings, customs times and autonomous dispatches across Dubai, Asia and Africa."
+      "Overview of saved shipment dossiers, estimates and draft dispatches across Dubai, Asia and Africa."
     ),
   component: MissionControl,
 });
@@ -27,25 +27,25 @@ function MissionControl() {
   const kpis = [
     {
       icon: Container,
-      label: "Persisted Trade Dossiers",
+      label: "Saved Trade Dossiers",
       value: String(recentDossiers.length),
-      unit: "in Lovable Cloud",
-      note: recentDossiers.length > 0 ? "Tamper-proof registry" : "No dossiers saved yet",
+      unit: "saved",
+      note: recentDossiers.length > 0 ? "Latest 10 runs, newest first" : "No dossiers saved yet",
       gold: true,
     },
     {
       icon: TrendingDown,
-      label: "AI Logistics Engine",
-      value: "Online",
-      unit: "GPT-6 Astra",
-      note: "Lovable AI Gateway · Active",
+      label: "Tool-using agent",
+      value: "5",
+      unit: "tools",
+      note: "AI proposes, tools compute, verifier checks",
     },
-        {
+    {
       icon: Clock,
-      label: "Global Corridor Engine",
-      value: "Multimodal",
-      unit: "Sea · Air · Land",
-      note: "Neutral Cross-Trade Routing",
+      label: "Home hub",
+      value: "Dubai",
+      unit: "Jebel Ali / DWC",
+      note: "Jebel Ali sea · DWC air",
     },
     {
       icon: Workflow,
@@ -60,11 +60,11 @@ function MissionControl() {
   return (
     <>
       <span className="mb-3 inline-flex rounded-full border border-gold/30 bg-gold/10 px-3 py-1 text-[11px] font-medium text-gold-2 lg:hidden">
-        Neutral Trade Corridor · Zero-Knowledge Manifest Privacy
+        Neutral Trade Corridor · Privacy-preserving manifests (roadmap)
       </span>
       <PageTitle
         title="Mission Control"
-        sub="Your autonomous agent is monitoring the Asia → Dubai → Africa corridors in real time."
+        sub="Dubai-based trade agent for the Asia → Dubai → Africa corridors. Every figure comes from a run you made or is labelled as an estimate."
       />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -102,9 +102,9 @@ function MissionControl() {
       </div>
 
       <div className="mt-6">
-                <Panel title="Sovereign Trade Dossier Registry">
+                <Panel title="Recent Trade Dossiers">
           <p className="-mt-3 mb-4 text-xs text-muted-foreground">
-            Persistent shipment dossiers stored in Lovable Cloud database with cryptographic reference and full audit trail.
+            Shipment dossiers saved in the Lovable Cloud database. A reference identifies each saved plan; it is not a tamper-proof or notarised record.
           </p>
 
           {recentDossiers.length === 0 ? (
@@ -112,7 +112,7 @@ function MissionControl() {
               <ShieldCheck className="mx-auto size-10 text-muted-foreground opacity-50" />
               <h3 className="mt-3 text-sm font-semibold">No dossiers persisted yet</h3>
               <p className="mt-1 text-xs text-muted-foreground max-w-sm mx-auto">
-                Generate your first multimodal route in the Optimizer to create a verified, permanent trade dossier.
+                Generate your first multimodal route in the Optimizer to save your first trade dossier.
               </p>
               <div className="mt-4">
                 <Button asChild size="sm" className="bg-gold hover:bg-gold-2 text-navy-dark font-medium">

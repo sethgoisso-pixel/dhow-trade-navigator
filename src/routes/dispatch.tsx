@@ -10,7 +10,7 @@ export const Route = createFileRoute("/dispatch")({
   head: () =>
     seo(
       "Autonomous Dispatch — Dhow",
-      "Human-in-the-Loop operations: review, approve, and lock AI-prepared carrier bookings and customs pre-filings."
+      "Human-in-the-loop operations: review and approve the booking and customs drafts prepared by the agent."
     ),
   component: DispatchPage,
 });
@@ -21,8 +21,8 @@ function DispatchPage() {
 
   const handleApprove = (d: Dispatch) => {
     resolveDispatch(d.id, "approved");
-    toast.success("Order Approved & Locked", {
-      description: `${d.id} · Operator sign-off recorded`,
+    toast.success("Draft approved", {
+      description: `${d.id} · Your approval is recorded in this session. Nothing was transmitted.`,
     });
   };
 
@@ -37,7 +37,7 @@ function DispatchPage() {
     <>
       <PageTitle
         title="Autonomous Dispatch Tower"
-        sub="Human-in-the-Loop Operations: Review, approve, and lock AI-prepared carrier slot allocations and customs pre-filings."
+        sub="Human-in-the-loop operations: review the booking and customs drafts the agent prepared. Approving records your decision; Dhow does not yet transmit anything to carriers or customs."
       />
 
       <div className="space-y-4">
@@ -49,7 +49,7 @@ function DispatchPage() {
               </div>
               <h3 className="text-base font-semibold">No Pending Operational Actions</h3>
               <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
-                The operations queue is empty. Submit a cargo request in the Route Optimizer to generate carrier space bookings and customs declarations.
+                The operations queue is empty. Submit a cargo request in the Route Optimizer to generate booking and customs pre-declaration drafts.
               </p>
               <div className="mt-6">
                 <Link
@@ -97,11 +97,7 @@ function DispatchPage() {
                         </span>
                       )}
                       <AIBadge>
-                        {d.status === "pending"
-                          ? "Pending Sign-off"
-                          : d.status === "approved"
-                          ? "Locked & Signed"
-                          : "Declined"}
+                        {d.status === "pending" ? "Pending Sign-off" : d.status === "approved" ? "Approved" : "Declined"}
                       </AIBadge>
                       <span className="flex items-center gap-1 text-[11px] text-muted-foreground ml-auto sm:ml-0">
                         <Clock className="size-3" />
@@ -130,7 +126,7 @@ function DispatchPage() {
                         className="bg-gradient-gold text-xs font-semibold text-navy shadow-gold hover:opacity-95"
                         onClick={() => handleApprove(d)}
                       >
-                        <Check className="mr-1 size-3.5" /> Approve & Lock
+                        <Check className="mr-1 size-3.5" /> Approve
                       </Button>
                     </div>
                   ) : (
@@ -144,7 +140,7 @@ function DispatchPage() {
                       >
                         {d.status === "approved" ? (
                           <>
-                            <Check className="size-3.5" /> Approved by Operator
+                            <Check className="size-3.5" /> Approved (not transmitted)
                           </>
                         ) : (
                           <>
