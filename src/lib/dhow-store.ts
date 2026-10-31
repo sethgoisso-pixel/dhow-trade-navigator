@@ -32,6 +32,28 @@ type State = {
   dispatches: Dispatch[];
 };
 
+const MY_DOSSIERS_KEY = "dhow.myDossiers";
+
+/** References of the dossiers saved from this browser (the only ones listed on Mission Control). */
+export function readMyDossierRefs(): string[] {
+  try {
+    const raw = localStorage.getItem(MY_DOSSIERS_KEY);
+    const arr: unknown = raw ? JSON.parse(raw) : [];
+    return Array.isArray(arr) ? arr.filter((x): x is string => typeof x === "string").slice(0, 10) : [];
+  } catch {
+    return [];
+  }
+}
+
+function rememberDossier(reference: string) {
+  try {
+    const next = [reference, ...readMyDossierRefs().filter((r) => r !== reference)].slice(0, 10);
+    localStorage.setItem(MY_DOSSIERS_KEY, JSON.stringify(next));
+  } catch {
+    /* storage unavailable: the dossier is still saved and reachable by its reference */
+  }
+}
+
 let id = 0;
 const now = () => new Date().toISOString().slice(11, 19);
 
@@ -162,6 +184,7 @@ export async function runAgent(scenario: Scenario | null) {
   // Persist the dossier (Supabase) and prepare the operational drafts linked to it.
   saveDossier({ data: { origin: form.origin, destination: form.destination, cargo: form as never, plan: finalPlan as never, source } })
     .then((r) => {
+      if (r.reference) rememberDossier(r.reference);
       if (my === runId && r.reference) {
         set({ dossierRef: r.reference });
         pushLog(`✓ Dossier saved: ${r.reference}`, "ok");

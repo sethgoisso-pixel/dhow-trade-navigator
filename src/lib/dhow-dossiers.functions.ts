@@ -52,13 +52,24 @@ export interface DossierSummary {
   mode: string;
 }
 
-/** Fetches recent shipment dossiers stored in Lovable Cloud */
-export const listRecentDossiers = createServerFn({ method: "GET" }).handler(
-  async (): Promise<DossierSummary[]> => {
+const RefList = z.object({
+  references: z.array(z.string().regex(/^DHOW-\d{4}-[A-Z0-9]{10}$/)).max(10),
+});
+
+/**
+ * Lists only the dossiers whose references the caller already holds (kept in the
+ * visitor's own browser). There is no global listing: other visitors' dossiers
+ * are never exposed.
+ */
+export const listMyDossiers = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) => RefList.parse(d))
+  .handler(async ({ data: input }): Promise<DossierSummary[]> => {
+    if (input.references.length === 0) return [];
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data, error } = await supabaseAdmin
       .from("dossiers")
       .select("reference, origin, destination, source, created_at, plan")
+      .in("reference", input.references)
       .order("created_at", { ascending: false })
       .limit(10);
 
@@ -68,7 +79,7 @@ export const listRecentDossiers = createServerFn({ method: "GET" }).handler(
     }
 
     return (data || []).map((row) => {
-            const plan = row.plan as Record<string, any> | null;
+      const plan = row.plan as Record<string, any> | null;
       const options = plan?.["options"] as Array<{ name?: string }> | undefined;
       return {
         reference: row.reference,
@@ -80,5 +91,4 @@ export const listRecentDossiers = createServerFn({ method: "GET" }).handler(
         mode: options?.[0]?.name || "Multimodal Sea-Air via Dubai",
       };
     });
-  }
-);
+  });
