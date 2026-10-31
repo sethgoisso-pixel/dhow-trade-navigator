@@ -1,106 +1,93 @@
-# ⚓ DHOW · Autonomous Multimodal Trade & Logistics Navigator
+# ⚓ Dhow: a trade agent for Dubai's corridors
 
-> **Next-Generation Sovereign Trade Intelligence connecting Asia, the Middle East, and Africa.**  
-> *Engineered for the Global AI & Logistics Economy · 100% Real-Time AI · Zero Simulated Data.*
+> An AI agent that helps a trader or freight forwarder in Dubai answer one question before a container moves: **what will this shipment really cost, which route, and what paperwork does it need?**
 
-[![Architecture](https://img.shields.io/badge/Architecture-TanStack%20Start%20v1-blue.svg)](https://tanstack.com)
-[![Persistence](https://img.shields.io/badge/Database-Lovable%20Cloud-gold.svg)](#)
-[![Cartography](https://img.shields.io/badge/Mapping-MapLibre%20GL-emerald.svg)](https://maplibre.org)
-[![Nomenclature](https://img.shields.io/badge/Customs-WCO%20HS%202026-navy.svg)](#)
+Live demo: https://dhow-trade-navigator.lovable.app
+
+**Principle: the model proposes, tools compute, a verifier enforces.** Numbers never come from the language model, and every step the agent takes is shown in a trace.
 
 ---
 
-## 🌍 Executive Summary
+## The problem
 
-Global supply chains connecting Asian industrial hubs (Shenzhen, Ningbo, Busan) to emerging African and European consumer markets face systemic friction:
-- **Red Sea & Geopolitical Bottlenecks**: Maritime routes face +14 days transit and surging insurance premiums.
-- **Customs Misclassification**: Over 5,000 WCO HS subheadings cause costly border delays and fiscal penalties.
-- **Data Opacity**: Independent shippers spend 48 to 72 hours aggregating freight forwarder quotes across Air, Ocean, and Land.
+Asia → Africa trade through Dubai means comparing sea, air and sea-air options, guessing the HS code, and estimating duties, often by phone and spreadsheet, across several forwarders. A wrong HS code or a missed chokepoint costs days and money. Dhow does the first pass in one run and shows its work so a broker can check it instead of trusting it.
 
-**DHOW** is an autonomous trade agent that arbitrates multimodal logistics in seconds. Anchored by the world's most strategic neutral crossroads—leveraging bonded Sea-Air corridors (Jebel Ali Port ⇄ Al Maktoum International Airport DWC)—Dhow synthesizes optimal routes, assigns certified Harmonized System (HS) classifications, generates auditable trade dossiers, and presents structured operational actions for human verification.
+## Built from a smartphone
 
----
-
-## ⚡ The Origin Story: Built From a Smartphone
-
-> *"Logistics happens on the ground, across container terminals, bonded warehouses, and transit checkpoints. Dhow was conceived, architected, debugged, and shipped entirely from a mobile phone."*
-
-Building an institutional-grade, full-stack AI logistics system on a mobile interface required overcoming acute technical constraints:
-- **Mobile-First Dev Environment**: Orchestrating complex server functions, schema migrations, and Git revisions on a touch screen without a secondary desktop display.
-- **The War on "Simulation"**: Actively stripping out canned mock data, decorative tickers, and fake EDI generators in favor of a 100% truthful, verifiable architecture where every computation connects to real LLM reasoning, real databases, and actual geographical coordinates.
-- **Rigorous Responsive Engineering**: Guaranteeing that Mission Control, MapLibre interactive cartography, and institutional document viewers render flawlessly on both field smartphones and operations room control towers.
-
-This genesis reflects Dhow's core philosophy: **empowering global merchants with enterprise-grade trade intelligence directly in the palm of their hand.**
+Dhow was designed, debugged and shipped entirely from a phone, with no PC. That constraint shaped the product: small screens, short sessions, and a strict habit of testing what is real and removing what only looks real.
 
 ---
 
-## 🏛️ Core System Architecture
+## What is real, what is estimated, what is planned
 
-Dhow is structured into 4 fully functional institutional modules:
+| | Status | How it works |
+|---|---|---|
+| HS classification | **Real** | Search over the full HS-2022 nomenclature (5,613 six-digit subheadings, UN Comtrade open data). The model may only choose among real candidates, and the verifier rejects any code outside the list. The "match score" is a text-match score, not a probability or a legal ruling. |
+| Duty rates | **Real bands, estimated rate** | The model proposes a rate; the verifier snaps it to the legal bands of the destination customs union (ECOWAS, GCC, EAC, CEMAC). Tariff-line rates are not looked up yet. |
+| Landed cost | **Estimated** | CIF, duty, VAT (indicative table) and flat port/brokerage fees, computed in code. Flat fees are labelled "assumed". |
+| Marine weather | **Real, live** | Wave heights at Hormuz, Bab-el-Mandeb and Malacca from the Open-Meteo Marine API. They feed the weather index of each plan, and the briefing cites the measurement time. If the API does not answer, the screen says "fallback values" instead of "live". |
+| Exchange rates | **Real, live** | USD to AED/EUR from open.er-api.com (AED is pegged at 3.6725). If the API does not answer, a fallback table is used and labelled as such. |
+| Routes | **Estimated** | Great-circle distance (Haversine) and fixed speeds through Jebel Ali or another hub, with chokepoint exposure (Hormuz, Red Sea / Suez, Malacca). Not carrier quotes. Congestion and customs indices are geography heuristics. |
+| Compliance screen | **Indicative** | Small red-flag list (review jurisdictions, controlled goods, lithium-battery dangerous goods). It is not a lookup against OFAC, EU, UN or UAE lists. |
+| Agent trace | **Real** | Every tool call and verification is recorded and shown. If the AI is unavailable, a deterministic tool pipeline runs and says so. |
+| Documents | **Drafts** | Commercial invoice, packing list, bill of lading drafts with placeholders for unknown parties, and a SHA-256 fingerprint of their content. Not official documents. |
+| Dossier registry | **Real, not tamper-proof** | Saved plans in a Lovable Cloud (Postgres) table with a reference, viewable at `/dossier/[REF]`. |
+| Dispatch tower | **Human-in-the-loop, no transmission** | Booking and customs pre-declaration drafts wait for approval. Nothing is sent to carriers or customs yet. |
+| External data APIs (tariffs, sanctions lists, freight rates) | **Planned** | Each figure will carry its source and date. |
+| Carrier / customs integration | **Planned** | See the roadmap. |
+| Privacy-preserving manifests | **Planned** | Selective disclosure with hash commitments first; real zero-knowledge proofs as a later phase. |
 
-| Module | Route | Real-World Operational Engine |
+## Architecture
+
+```
+Request ─▶ agent loop (LLM picks the next tool, max 6 calls)
+              ├─ resolve_port · search_hs_code · screen_compliance · estimate_routes · estimate_landed_cost
+              └─ verifier: HS exists? duty on a legal band? ports resolved?
+        ─▶ plan (route, cost, compliance, drafts) + trace
+Fallback: deterministic tool pipeline (no AI), same tools, same verifier.
+```
+
+| Module | Route | Role |
 | :--- | :--- | :--- |
-| **Mission Control** | `/` | Real-time operations dashboard, live system telemetry, geodesic MapLibre route projection, and immutable **Trade Dossier Registry** backed by Lovable Cloud. |
-| **Route Optimizer** | `/optimizer` | Multimodal AI agent arbitrating **Air Express**, **Direct Ocean**, and **Sovereign Sea-Air** corridors. Computes transit duration, dynamic landed costs, CO₂ impact, and route risk profiles. |
-| **Customs Engine** | `/customs` | Live WCO HS classification engine. Translates any natural-language commodity into 6-digit Harmonized System codes with destination tariff breakdowns and compliance document checklists. |
-| **Dispatch Tower** | `/dispatch` | **Human-in-the-Loop (HITL)** governance portal. Generates auditable operational orders (Carrier Slot Booking, Customs Pre-filing) for human operator approval prior to execution. |
+| Mission Control | `/` | Overview, map, recent dossiers |
+| Route Optimizer | `/optimizer` | Runs the agent, shows routes, cost, compliance, drafts and trace |
+| Customs Engine | `/customs` | HS search, AI choice among verified candidates, duty estimate |
+| Dispatch Tower | `/dispatch` | Approve or reject drafts |
+| Architecture | `/scenarios` | How the agent and the Dubai corridor fit together |
 
----
+Code: `src/lib/agent/` (tools, loop, verifier, tests), `src/lib/dhow-ai.functions.ts` (server functions and demo quota guard), `src/lib/dhow-plan.ts` (route/cost model and drafts).
 
-## 🔒 Commitment to Authenticity: No Mock Data
+## Roadmap
 
-Dhow adheres to a strict code of engineering honesty:
-1. **Live LLM Intelligence**: Corridor optimization and HS classifications are executed dynamically via server-side AI reasoning models using strict JSON schemas.
-2. **Persistent Audit Registry**: Every processed shipment receives an immutable tracking identifier (`DHOW-2026-XXXXXXXXXX`) permanently stored in the Lovable Cloud database and auditable at `/dossier/[REF]`.
-3. **Scannable Verification**: Every generated document package includes a dynamic QR verification code linking directly to the cloud dossier proof of origin.
-4. **Human Governance**: Operational dispatches remain pending until explicitly reviewed and locked by an authorized human controller.
+1. **More sourced data**: tariffs by HS line, sanctions screening and freight rates, with source and date next to every figure (marine weather and FX are already live).
+2. **Measured accuracy**: benchmark of HS classification (agent vs plain LLM) on a public test set.
+3. **Real artifacts on approval**: PDF dossier and email draft for the broker.
+4. **Selective-disclosure manifests**, then **zero-knowledge proofs** (Noir or circom).
+5. **Carrier and customs gateways** (post-funding): licensing, UN/EDIFACT messages (IFTMIN, CUSDEC), Dubai Trade (Mirsal II), ASYCUDA.
+6. **TMS synchronisation** (CargoWise, SAP TM).
 
----
+## Limits
 
-## 🗺️ Production Roadmap & Enterprise Scaling
+Not legal or customs advice: a licensed broker must review before any filing. No live vessel, freight-rate or tariff-line feed yet. The demo caps AI runs per hour to protect its credits and falls back to the tool pipeline.
 
-Dhow currently serves as an **Autonomous Logistics Intelligence & Human-in-the-Loop Routing Engine**. 
+## Stack
 
-To transition from autonomous intelligence to physical carrier execution, the post-competition roadmap focuses on institutional integration:
+TanStack Start (React 19, Vite), Tailwind v4, MapLibre GL, Lovable Cloud (Postgres), Zod, Vitest.
 
-### 1. Direct EDI & Carrier Protocols (Post-Funded Phase)
-* **Accreditations**: Securing IATA cargo agent licensing and Federal Maritime Commission (FMC) ocean freight forwarding certification.
-* **EDIFACT Gateways**: Implementing AS2 secure communication servers to transmit certified **UN/EDIFACT IFTMIN** (Transport Instruction) and **CUSDEC** (Customs Declaration) messages directly to ocean liners (Maersk, MSC, CMA CGM) and air cargo carriers.
-
-### 2. Port Community Systems & Single Windows
-* Direct API connectors with national single-window clearing systems:
-  * **Dubai Trade (Mirsal II)**
-  * **UN ASYCUDA** (Automated System for Customs Data)
-  * **EU Customs Data Model (EUCDM)**
-
-### 3. Enterprise TMS Synchronization
-* Webhook-driven bidirectional synchronization with Tier-1 Transportation Management Systems (CargoWise, SAP TM, Flexport).
-
----
-
-## 🛠️ Technology Stack
-
-* **Framework**: TanStack Start v1 (Full-stack React 19, Server Functions, SSR/SSG on Vite 7).
-* **Styling**: Tailwind CSS v4 with dual-palette design tokens (*Deep Maritime Navy* & *Cloudy Azure Glass*).
-* **Mapping**: MapLibre GL with keyless OpenFreeMap dark/light vector cartography and geodesic arc calculations.
-* **Database / Backend**: Lovable Cloud (PostgreSQL with Row-Level Security, Server-Side Admin Client).
-* **Validation**: Zod runtime schema validation for LLM inputs and responses.
-
----
-
-## 🚀 Local Development
+## Run locally
 
 ```bash
-# Clone the repository
-git clone https://github.com/<your-username>/<your-repo-name>.git
-
-# Install dependencies
 bun install
+bun dev        # http://localhost:8080
+bun run test
+```
 
-# Start local development server
-bun dev
+AI features need `LOVABLE_API_KEY` on the server; without it Dhow still works through the tool pipeline.
 
-The application will be accessible at http://localhost:8080.
+## Data sources
 
-📄 Compliance & Neutrality Notice
-Dhow operates as a globally neutral trade corridor navigator. Manifest data and routing intelligence are computed without geopolitical alignment, adhering strictly to World Customs Organization (WCO) standards, international maritime law, and zero-knowledge data privacy principles.
+HS-2022: UN Comtrade via [datasets/harmonized-system](https://github.com/datasets/harmonized-system) (ODC-PDDL). VAT rates are indicative and dated.
+
+## License
+
+MIT, see `LICENSE`.
