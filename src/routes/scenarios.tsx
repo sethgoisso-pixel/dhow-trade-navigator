@@ -56,7 +56,7 @@ function D33ArchitecturePage() {
     { label: "Dubai D33 trade target", value: "AED 32 tn", detail: "Foreign trade goal set by the D33 agenda" },
     { label: "HS-2022 subheadings searched", value: "5,613", detail: "UN Comtrade open data, verified by code" },
     { label: "Agent tools", value: "5", detail: "Port, HS search, compliance, routes, landed cost" },
-    { label: "Automated tests", value: "13", detail: "Tools, verifier, agent loop and fallback" },
+    { label: "Automated tests", value: "22", detail: "Tools, verifier, agent loop, sources and HS benchmark" },
   ];
 
 
