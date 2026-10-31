@@ -32,7 +32,7 @@ Dhow was designed, debugged and shipped entirely from a phone, with no PC. That 
 | Compliance screen | **Indicative** | Small red-flag list (review jurisdictions, controlled goods, lithium-battery dangerous goods). It is not a lookup against OFAC, EU, UN or UAE lists. |
 | Agent trace | **Real** | Every tool call and verification is recorded and shown. If the AI is unavailable, a deterministic tool pipeline runs and says so. |
 | Documents | **Drafts** | Commercial invoice, packing list, bill of lading drafts with placeholders for unknown parties, and a SHA-256 fingerprint of their content. Not official documents. |
-| Dossier registry | **Real, not tamper-proof** | Saved plans in a Lovable Cloud (Postgres) table with a reference, viewable at `/dossier/[REF]`. |
+| Dossier registry | **Real, not tamper-proof** | Saved plans in a Lovable Cloud (Postgres) table with an unguessable reference, viewable at `/dossier/[REF]`. Mission Control lists only the dossiers saved from your own browser; there is no public listing of other visitors' runs. |
 | Dispatch tower | **Human-in-the-loop, no transmission** | Booking and customs pre-declaration drafts wait for approval. Nothing is sent to carriers or customs yet. |
 | External data APIs (tariffs, sanctions lists, freight rates) | **Planned** | Each figure will carry its source and date. |
 | Carrier / customs integration | **Planned** | See the roadmap. |
@@ -50,7 +50,7 @@ Fallback: deterministic tool pipeline (no AI), same tools, same verifier.
 
 | Module | Route | Role |
 | :--- | :--- | :--- |
-| Mission Control | `/` | Overview, map, recent dossiers |
+| Mission Control | `/` | Overview, map, your recent dossiers |
 | Route Optimizer | `/optimizer` | Runs the agent, shows routes, cost, compliance, drafts and trace |
 | Customs Engine | `/customs` | HS search, AI choice among verified candidates, duty estimate |
 | Dispatch Tower | `/dispatch` | Approve or reject drafts |
