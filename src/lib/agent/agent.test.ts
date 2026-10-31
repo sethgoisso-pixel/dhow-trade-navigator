@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import { runAgentLoop, runToolPipeline, type ModelJSON } from "./agent";
 import { SCENARIOS } from "../dhow-data";
 import { checkDutyRate, estimateLanded, estimateRoutes, isKnownHs, resolvePort, screenCompliance, searchHS } from "./tools";
+import { buildValuation, parseFredTxt, seriesForHs, toUsdPerTonne } from "../dhow-reference";
+import { HOLDOUT, TUNING } from "./benchmark";
 
 const solar = SCENARIOS[0]!;
 const phones = SCENARIOS[1]!;
@@ -142,5 +144,78 @@ describe("live sea state", () => {
     const r = estimateRoutes(form, undefined, { ...calm, live: false });
     expect(r.ok).toBe(true);
     if (r.ok) expect(r.risk.briefing).toContain("heuristic");
+  });
+});
+
+describe("sourced reference prices", () => {
+  const sample = `Title:               Global price of Bananas
+Series ID:           PBANSOPUSDM
+Source:              International Monetary Fund
+Frequency:           Monthly
+Units:               U.S. Dollars per Metric Ton
+Date Range:          2010-05-01 to 2026-09-01
+
+DATE       VALUE
+2026-07-01  1167.4273469344430
+2026-08-01  1104.9723830450150
+2026-09-01  1135.1080211292610
+`;
+  it("parses the latest row and the units from a FRED text file", () => {
+    const p = parseFredTxt(sample);
+    expect(p?.date).toBe("2026-09-01");
+    expect(p?.units).toContain("Metric Ton");
+    expect(toUsdPerTonne(p!.value, p!.units)).toBeCloseTo(1135.108, 2);
+  });
+  it("converts cents per pound and refuses unknown units", () => {
+    expect(toUsdPerTonne(100, "U.S. Cents per Pound")).toBeCloseTo(2204.62, 1);
+    expect(toUsdPerTonne(5, "Index")).toBeNull();
+  });
+  it("maps HS codes to series only for listed commodities", () => {
+    expect(seriesForHs("0803.90")?.id).toBe("PBANSOPUSDM");
+    expect(seriesForHs("8541.43")).toBeNull();
+  });
+  const ref = { seriesId: "PBANSOPUSDM", label: "Bananas", title: "Global price of Bananas", usdPerTonne: 1135, asOf: "2026-09-01", url: "https://fred.stlouisfed.org/series/PBANSOPUSDM" };
+  it("estimates the value of 20 t when none is entered, and says so", () => {
+    const v = buildValuation({ enteredUsd: 0, tonnes: 20, ref });
+    expect(v?.basis).toBe("reference");
+    expect(v?.valueUsd).toBe(22700);
+    expect(v?.note).toContain("replace this with your real one");
+  });
+  it("flags an invoice far below the benchmark and accepts a consistent one", () => {
+    expect(buildValuation({ enteredUsd: 5000, tonnes: 20, ref })?.flag).toBe("low");
+    expect(buildValuation({ enteredUsd: 24000, tonnes: 20, ref })?.flag).toBeNull();
+    expect(buildValuation({ enteredUsd: 90000, tonnes: 20, ref })?.flag).toBe("high");
+    expect(buildValuation({ enteredUsd: 24000, tonnes: 20, ref: null })).toBeNull();
+  });
+});
+
+describe("natural product descriptions", () => {
+  it("ignores quantities and picks the commodity, not a lookalike", () => {
+    expect(searchHS("20 tonnes of fresh bananas")[0]?.code).toBe("0803.90");
+    expect(searchHS("50t Green Coffee Beans")[0]?.code).toBe("0901.11");
+    expect(searchHS("yellow maize")[0]?.code).toBe("1005.90");
+    expect(searchHS("wheat")[0]?.code).toBe("1001.99");
+    expect(searchHS("wheat flour")[0]?.code.startsWith("1101")).toBe(true);
+    expect(searchHS("cotton")[0]?.code).toBe("5201.00");
+  });
+});
+
+describe("HS search benchmark (retrieval of the expected subheading)", () => {
+  const score = (cases: [string, string][]) => {
+    let top1 = 0, top5 = 0;
+    for (const [q, want] of cases) {
+      const i = searchHS(q, 5).findIndex((h) => h.code === want);
+      if (i === 0) top1++;
+      if (i >= 0) top5++;
+    }
+    return { n: cases.length, top1: top1 / cases.length, top5: top5 / cases.length };
+  };
+  it("keeps recall@5 at or above the measured floors", () => {
+    const a = score(TUNING);
+    const b = score(HOLDOUT);
+    expect(a.top5).toBeGreaterThanOrEqual(0.9);
+    expect(a.top1).toBeGreaterThanOrEqual(0.7);
+    expect(b.top5).toBeGreaterThanOrEqual(0.85);
+    expect(b.top1).toBeGreaterThanOrEqual(0.7);
   });
 });

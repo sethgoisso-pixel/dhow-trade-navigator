@@ -16,6 +16,33 @@ import type { PlanOption } from "../dhow-plan";
 export type HsHit = { code: string; description: string; score: number };
 
 const STOP = new Set(["the", "of", "and", "for", "with", "in", "a", "an", "other", "than", "or", "to", "by", "not", "nes", "n.e.s", "whether", "their", "from", "on", "at", "used", "new", "units", "unit"]);
+/** Words that only appear in a user's query (quantities, packaging, shipping): ignored for the query, never for the HS texts. */
+const QUERY_STOP = new Set([
+  "t", "tonne", "tonnes", "ton", "tons", "mt", "kg", "kgs", "teu", "feu", "container", "containers", "cbm", "pallet", "pallets", "bulk", "fcl", "lcl", "metric", "export", "import", "premium", "quality", "grade", "shipment", "cargo", "load"]);
+
+/**
+ * Curated product aliases for common trade commodities: a query that names one of them prefers these subheadings
+ * (a ranking prior only; the displayed score stays the lexical match). Skipped when the query names a processed form.
+ */
+const PROCESSED = /flour|meal|oil|cake|powder|extract|yarn|fabric|thread|shirt|garment|roasted|instant|juice|jam|chips|butter|paste|syrup|wine|beer/;
+const ALIASES: { re: RegExp; prefixes: string[] }[] = [
+  { re: /banana/, prefixes: ["080390"] },
+  { re: /plantain/, prefixes: ["080310"] },
+  { re: /green coffee|raw coffee|unroasted|coffee beans?|\bcoffee\b/, prefixes: ["090111"] },
+  { re: /cocoa|cacao/, prefixes: ["180100"] },
+  { re: /\bcotton\b/, prefixes: ["520100"] },
+  { re: /copper/, prefixes: ["740311"] },
+  { re: /alumin/, prefixes: ["760110"] },
+  { re: /\bwheat\b/, prefixes: ["100199"] },
+  { re: /maize|\bcorn\b/, prefixes: ["100590"] },
+  { re: /\brice\b/, prefixes: ["1006"] },
+  { re: /\bsugar\b/, prefixes: ["170114", "170113"] },
+  { re: /cashew/, prefixes: ["0801"] },
+  { re: /\btea\b/, prefixes: ["0902"] },
+  { re: /\bcement\b/, prefixes: ["252329", "252310"] },
+  { re: /pineapple/, prefixes: ["080430"] },
+  { re: /\bmango/, prefixes: ["080450"] },
+];
 const SYN: Record<string, string[]> = {
   solar: ["photovoltaic", "photosensitive"],
   pv: ["photovoltaic"],
@@ -25,7 +52,7 @@ const SYN: Record<string, string[]> = {
   mobile: ["cellular", "telephones"],
   laptop: ["portable", "automatic", "data", "processing"],
   tablet: ["portable", "automatic", "data", "processing"],
-  rebar: ["bars", "rods", "iron", "steel", "reinforcing"],
+  rebar: ["bars", "rods", "iron", "steel", "reinforcing", "deformations", "indentations", "ribs", "twisted"],
   excavator: ["excavators", "shovels"],
   car: ["vehicles", "motor"],
   truck: ["vehicles", "goods", "transport"],
@@ -37,6 +64,21 @@ const SYN: Record<string, string[]> = {
   generator: ["generating", "sets"],
   cement: ["cements", "portland"],
   tiles: ["ceramic", "tiles"],
+  // customs vocabulary for everyday words
+  television: ["reception", "apparatus", "colour"],
+  tv: ["reception", "apparatus", "colour"],
+  washing: ["household", "laundry"],
+  sesame: ["sesamum"],
+  groundnut: ["ground", "nuts"],
+  peanut: ["ground", "nuts"],
+  chicken: ["fowls", "gallus"],
+  npk: ["nitrogen", "phosphorus", "potassium"],
+  soybean: ["soya", "beans"],
+  soy: ["soya", "beans"],
+  toothpaste: ["dentifrices"],
+  bicycle: ["cycles"],
+  rough: ["unworked", "sawn"],
+  shrimp: ["shrimps", "prawns"],
 };
 
 const stem = (w: string) => {
@@ -45,8 +87,8 @@ const stem = (w: string) => {
   if (w.length > 3 && w.endsWith("s") && !w.endsWith("ss")) return w.slice(0, -1);
   return w;
 };
-const tokens = (s: string) =>
-  s.toLowerCase().replace(/[^a-z0-9]+/g, " ").split(" ").filter((w) => w.length > 1 && !STOP.has(w)).map(stem);
+const tokens = (s: string, forQuery = false) =>
+  s.toLowerCase().replace(/[^a-z0-9]+/g, " ").split(" ").filter((w) => w.length > 1 && !STOP.has(w) && !(forQuery && (/\d/.test(w) || QUERY_STOP.has(w)))).map(stem);
 
 type Doc = { code: string; description: string; toks: Set<string>; len: number };
 let docs: Doc[] | null = null;
@@ -94,13 +136,16 @@ export function searchHS(query: string, k = 5): HsHit[] {
     if (row) out.push({ code: formatHs(row.code), description: row.description, score: 1 });
   }
   const q = new Set<string>();
-  for (const t of tokens(query)) {
+  for (const t of tokens(query, true)) {
     q.add(t);
     for (const s of SYN[t] ?? []) q.add(stem(s));
   }
   if (q.size === 0) return out.slice(0, k);
   let total = 0;
   for (const t of q) total += w.get(t) ?? 1;
+  const lower = query.toLowerCase();
+  const prefer = PROCESSED.test(lower) ? [] : ALIASES.filter((a) => a.re.test(lower)).flatMap((a) => a.prefixes);
+  const rank = new Map<string, number>();
   const scored: HsHit[] = [];
   for (const d of ds) {
     let s = 0;
@@ -109,10 +154,16 @@ export function searchHS(query: string, k = 5): HsHit[] {
     const coverage = s / total;
     const focus = s / (s + 0.15 * Math.max(0, d.len - 4) * 1.2);
     // Subheadings that exclude the product ("not assembled", "other than …") rank slightly lower unless the query asks for it.
-    const negated = /\bnot\b|other than/i.test(d.description) && !/\bnot\b|other than/i.test(query) ? 0.92 : 1;
-    scored.push({ code: formatHs(d.code), description: d.description, score: +(coverage * (0.6 + 0.4 * focus) * negated).toFixed(2) });
+    const preferred = prefer.some((p) => d.code.startsWith(p));
+    // Raw goods are shipped whole: prefer the "neither crushed nor ground" line unless the query asks for ground or crushed.
+    const processed = /crushed or ground/i.test(d.description) && !/ground|crush|powder|milled/.test(lower) ? 0.97 : 1;
+    const negated = !preferred && /\bnot\b|other than/i.test(d.description) && !/\bnot\b|other than/i.test(query) ? 0.92 : 1;
+    const score = +(coverage * (0.6 + 0.4 * focus) * negated * processed).toFixed(2);
+    const formatted = formatHs(d.code);
+    rank.set(formatted, score * (preferred ? 2 : 1));
+    scored.push({ code: formatted, description: d.description, score });
   }
-  scored.sort((a, b) => b.score - a.score || a.code.localeCompare(b.code));
+  scored.sort((a, b) => (rank.get(b.code) ?? 0) - (rank.get(a.code) ?? 0) || a.code.localeCompare(b.code));
   for (const h of scored) if (!out.some((o) => o.code === h.code)) out.push(h);
   return out.slice(0, k);
 }
