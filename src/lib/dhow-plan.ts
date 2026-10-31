@@ -1,4 +1,5 @@
 import { classifyHS, type CargoForm } from "./dhow-data";
+import type { ComplianceSummary, TraceEvent } from "./agent/types";
 
 export type Region = "AF" | "ME" | "EU" | "AS" | "AM";
 export type GeoPoint = { name: string; lat: number; lng: number; role: "origin" | "hub" | "destination" };
@@ -24,8 +25,11 @@ export type Plan = {
   customs: { hsCode: string; description: string; confidence: number; tariffs: TariffLine[]; totalLanded: number };
   risks: { congestion: number; customs: number; weather: number; briefing: string };
   documents: TradeDoc[];
+  /** Real tool calls made by the agent (present when the plan came from the tool pipeline or the AI loop). */
+  trace?: TraceEvent[];
+  compliance?: ComplianceSummary;
 };
-export type PlanSource = "ai" | "simulated" | "preset";
+export type PlanSource = "ai" | "tools" | "simulated" | "preset";
 
 type City = { lat: number; lng: number; region: Region; country: string; code: string };
 const GEO: Record<string, City> = {
@@ -65,6 +69,36 @@ const GEO: Record<string, City> = {
   "são paulo": { lat: -23.55, lng: -46.63, region: "AM", country: "Brazil", code: "BRSAO" },
   "sao paulo": { lat: -23.55, lng: -46.63, region: "AM", country: "Brazil", code: "BRSAO" },
   santos: { lat: -23.96, lng: -46.33, region: "AM", country: "Brazil", code: "BRSSZ" },
+  qingdao: { lat: 36.07, lng: 120.32, region: "AS", country: "China", code: "CNTAO" },
+  guangzhou: { lat: 23.1, lng: 113.5, region: "AS", country: "China", code: "CNCAN" },
+  tianjin: { lat: 39.0, lng: 117.7, region: "AS", country: "China", code: "CNTXG" },
+  "ho chi minh": { lat: 10.77, lng: 106.7, region: "AS", country: "Vietnam", code: "VNSGN" },
+  "port klang": { lat: 3.0, lng: 101.39, region: "AS", country: "Malaysia", code: "MYPKG" },
+  jakarta: { lat: -6.1, lng: 106.88, region: "AS", country: "Indonesia", code: "IDJKT" },
+  "laem chabang": { lat: 13.08, lng: 100.88, region: "AS", country: "Thailand", code: "THLCH" },
+  mundra: { lat: 22.74, lng: 69.7, region: "AS", country: "India", code: "INMUN" },
+  colombo: { lat: 6.95, lng: 79.85, region: "AS", country: "Sri Lanka", code: "LKCMB" },
+  karachi: { lat: 24.84, lng: 66.98, region: "AS", country: "Pakistan", code: "PKKHI" },
+  chittagong: { lat: 22.31, lng: 91.8, region: "AS", country: "Bangladesh", code: "BDCGP" },
+  "khor fakkan": { lat: 25.35, lng: 56.36, region: "ME", country: "UAE", code: "AEKLF" },
+  fujairah: { lat: 25.17, lng: 56.36, region: "ME", country: "UAE", code: "AEFJR" },
+  "abu dhabi": { lat: 24.8, lng: 54.65, region: "ME", country: "UAE", code: "AEAUH" },
+  sharjah: { lat: 25.36, lng: 55.38, region: "ME", country: "UAE", code: "AESHJ" },
+  dammam: { lat: 26.5, lng: 50.2, region: "ME", country: "Saudi Arabia", code: "SADMM" },
+  djibouti: { lat: 11.6, lng: 43.15, region: "AF", country: "Djibouti", code: "DJJIB" },
+  alexandria: { lat: 31.2, lng: 29.88, region: "AF", country: "Egypt", code: "EGALY" },
+  "port said": { lat: 31.26, lng: 32.3, region: "AF", country: "Egypt", code: "EGPSD" },
+  "tanger med": { lat: 35.89, lng: -5.5, region: "AF", country: "Morocco", code: "MAPTM" },
+  lome: { lat: 6.13, lng: 1.21, region: "AF", country: "Togo", code: "TGLFW" },
+  "lomé": { lat: 6.13, lng: 1.21, region: "AF", country: "Togo", code: "TGLFW" },
+  luanda: { lat: -8.8, lng: 13.24, region: "AF", country: "Angola", code: "AOLAD" },
+  maputo: { lat: -25.97, lng: 32.57, region: "AF", country: "Mozambique", code: "MZMPM" },
+  istanbul: { lat: 41.0, lng: 28.98, region: "EU", country: "Turkey", code: "TRIST" },
+  piraeus: { lat: 37.94, lng: 23.64, region: "EU", country: "Greece", code: "GRPIR" },
+  valencia: { lat: 39.45, lng: -0.32, region: "EU", country: "Spain", code: "ESVLC" },
+  algeciras: { lat: 36.13, lng: -5.44, region: "EU", country: "Spain", code: "ESALG" },
+  genoa: { lat: 44.4, lng: 8.92, region: "EU", country: "Italy", code: "ITGOA" },
+  felixstowe: { lat: 51.96, lng: 1.35, region: "EU", country: "United Kingdom", code: "GBFXT" },
 };
 
 export function lookupCity(q: string): (City & { name: string }) | null {
@@ -84,12 +118,12 @@ function distanceKm(a: { lat: number; lng: number }, b: { lat: number; lng: numb
   return 12742 * Math.asin(Math.sqrt(d));
 }
 
-/** Deterministic local plan: used for the preset demos and whenever the AI call is unavailable. */
-export function simulatePlan(f: CargoForm, presetSteps?: string[], hsQuery?: string): Plan {
-  const o = lookupCity(f.origin) ?? { ...GEO["shanghai"]!, name: f.origin.split(",")[0]!.trim() || "Origin" };
-  const d = lookupCity(f.destination) ?? { ...GEO["cotonou"]!, name: f.destination.split(",")[0]!.trim() || "Destination" };
+export type ResolvedCity = City & { name: string };
+
+/** Distance-based route model shared by the local simulator and the agent's `estimate_routes` tool. These are model estimates, not carrier quotes. */
+export function routeModel(f: CargoForm, o: ResolvedCity, d: ResolvedCity, hubOverride?: ResolvedCity) {
   const hubKey = d.region === "ME" || o.region === "ME" ? "jebel ali" : o.region === "AM" || d.region === "AM" ? "rotterdam" : "jebel ali";
-  const hub = { ...GEO[hubKey]!, name: hubKey === "jebel ali" ? "Jebel Ali" : "Rotterdam" };
+  const hub: ResolvedCity = hubOverride ?? { ...GEO[hubKey]!, name: hubKey === "jebel ali" ? "Jebel Ali" : "Rotterdam" };
   const km = distanceKm(o, hub) + distanceKm(hub, d);
   const k = Math.max(0.5, km / 9000);
   const teu = Math.max(1, Math.ceil(f.volume / 33));
@@ -99,34 +133,54 @@ export function simulatePlan(f: CargoForm, presetSteps?: string[], hsQuery?: str
     { key: "B", name: "Cost-Effective — Ocean FCL", via: `Direct ocean / ${hub.name}`, days: Math.round(22 * k), cost: Math.round(teu * 2300 * k), co2: +(f.weight * 0.1 * k).toFixed(1), reliability: 78 },
     { key: "C", name: "Dhow AI Optimized Multimodal", via: `${hub.name} transshipment → priority feeder`, days: Math.round(15 * k), cost: Math.round(teu * 2300 * k * 1.14), co2: +(f.weight * 0.12 * k).toFixed(1), reliability: 94 },
   ];
-  const hs = classifyHS(`${hsQuery ?? ""} ${f.cargoType}`)[0];
-  const hsCode = hs?.code ?? "8479.89";
-  const description = hs?.description ?? `${f.cargoType} (machines n.e.s.)`;
-  const confidence = hs ? +hs.confidence.toFixed(1) : 72.4;
+  return { hub, km, teu, options };
+}
+
+/** Overrides produced by the agent's tools; when present they replace the built-in guesses. */
+export type PlanOverrides = {
+  hs?: { code: string; description: string; confidence: number };
+  dutyRate?: number;
+  dutyLabel?: string;
+  vat?: { rate: number; label: string };
+  hub?: ResolvedCity;
+  risks?: Plan["risks"];
+};
+
+/** Deterministic local plan: used for the preset demos and whenever the AI call is unavailable. */
+export function simulatePlan(f: CargoForm, presetSteps?: string[], hsQuery?: string, ov: PlanOverrides = {}): Plan {
+  const o = lookupCity(f.origin) ?? { ...GEO["shanghai"]!, name: f.origin.split(",")[0]!.trim() || "Origin" };
+  const d = lookupCity(f.destination) ?? { ...GEO["cotonou"]!, name: f.destination.split(",")[0]!.trim() || "Destination" };
+  const { hub, km, options } = routeModel(f, o, d, ov.hub);
+  const hs = ov.hs ? undefined : classifyHS(`${hsQuery ?? ""} ${f.cargoType}`)[0];
+  const hsCode = ov.hs?.code ?? hs?.code ?? "8479.89";
+  const description = ov.hs?.description ?? hs?.description ?? `${f.cargoType} (machines n.e.s.)`;
+  const confidence = ov.hs ? ov.hs.confidence : hs ? +hs.confidence.toFixed(1) : 72.4;
   const value = f.declaredValue;
-  const [vatRate, vatLabel] = VAT[d.region];
-  const dutyRate = hs ? (d.region === "AF" ? hs.dutyAfrica : hs.dutyAE) : DUTY[d.region];
+  const [defVatRate, defVatLabel] = VAT[d.region];
+  const vatRate = ov.vat?.rate ?? defVatRate;
+  const vatLabel = ov.vat?.label ?? defVatLabel;
+  const dutyRate = ov.dutyRate ?? (hs ? (d.region === "AF" ? hs.dutyAfrica : hs.dutyAE) : DUTY[d.region]);
   const cif = value * 1.06;
   const duty = (cif * dutyRate) / 100;
   const tariffs: TariffLine[] = [
-    { label: `Import duty (${d.country})`, rate: `${dutyRate}%`, amount: Math.round(duty) },
+    { label: `Import duty (${d.country})${ov.dutyLabel ? ` — ${ov.dutyLabel}` : ""}`, rate: `${dutyRate}%`, amount: Math.round(duty) },
     { label: `${vatLabel} — ${d.country}`, rate: `${vatRate}%`, amount: Math.round(((cif + duty) * vatRate) / 100) },
-    { label: "Port & terminal handling", rate: "flat", amount: d.region === "AF" ? 2850 : 1420 },
-    { label: "Dhow automated brokerage", rate: "flat", amount: 180 },
+    { label: "Port & terminal handling (assumed)", rate: "flat", amount: d.region === "AF" ? 2850 : 1420 },
+    { label: "Dhow automated brokerage (assumed)", rate: "flat", amount: 180 },
   ];
   const ref = `DH-${o.code.slice(2)}${d.code.slice(2)}-${new Date().getFullYear()}-${(hash(f.origin + f.destination + f.cargoType) % 9000) + 1000}`;
   const pkgs = Math.max(1, Math.ceil(f.volume * 9));
-  const containers = Array.from({ length: Math.max(1, Math.ceil(f.volume / 66)) }, (_, i) => `MSKU ${(771204 + i * 84) % 1000000}-${(3 + i * 6) % 10}`);
+  const containers = Array.from({ length: Math.max(1, Math.ceil(f.volume / 66)) }, (_, i) => `Container ${i + 1} (no. to be assigned)`);
   const parties = [
-    { role: "Shipper / Exporter", name: `${o.name} Export Trading Co.`, address: `${o.name}, ${o.country}` },
-    { role: "Consignee / Importer", name: `${d.name} Infrastructure Imports Ltd`, address: `${d.name}, ${d.country}` },
-    { role: "Notify Party", name: "Dhow Logistics FZE", address: "Jebel Ali Free Zone, Dubai, UAE" },
+    { role: "Shipper / Exporter", name: "[Shipper name — to be completed]", address: `${o.name}, ${o.country}` },
+    { role: "Consignee / Importer", name: "[Consignee name — to be completed]", address: `${d.name}, ${d.country}` },
+    { role: "Notify Party", name: "[Notify party — to be completed]", address: "[Address — to be completed]" },
   ];
   const money = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
   const docs: TradeDoc[] = [
     {
       kind: "invoice", title: "Commercial Invoice", reference: `${ref}-CI`, incoterms: `CIF ${d.name} (Incoterms® 2020)`, parties,
-      meta: [{ label: "Payment terms", value: "Irrevocable L/C at sight" }, { label: "Country of origin", value: o.country }, { label: "Currency", value: "USD" }],
+      meta: [{ label: "Payment terms", value: "To be agreed between the parties" }, { label: "Country of origin", value: o.country }, { label: "Currency", value: "USD" }],
       columns: ["HS Code", "Description", "Qty", "Amount"],
       rows: [[hsCode, description, `${pkgs} pkgs`, money(value)], ["—", "Ocean freight & insurance", "1 lot", money(value * 0.06)]],
       totals: [{ label: "FOB value", value: money(value) }, { label: "Total CIF value", value: money(cif) }],
@@ -142,11 +196,11 @@ export function simulatePlan(f: CargoForm, presetSteps?: string[], hsQuery?: str
     },
     {
       kind: "bl", title: "Draft Bill of Lading", reference: `${ref}-BL`, incoterms: `CIF ${d.name} (Incoterms® 2020)`, parties,
-      meta: [{ label: "Carrier", value: "Maersk Line" }, { label: "Vessel / Voyage", value: "MAERSK ESSEN / 445W" }, { label: "Port of loading", value: `${o.name} (${o.code})` }, { label: "Transshipment", value: `${hub.name} (${hub.code})` }, { label: "Port of discharge", value: `${d.name} (${d.code})` }, { label: "Freight", value: "PREPAID" }],
+      meta: [{ label: "Carrier", value: "To be booked" }, { label: "Vessel / Voyage", value: "To be confirmed at booking" }, { label: "Port of loading", value: `${o.name} (${o.code})` }, { label: "Transshipment", value: `${hub.name} (${hub.code})` }, { label: "Port of discharge", value: `${d.name} (${d.code})` }, { label: "Freight", value: "PREPAID" }],
       columns: ["Container / Seal", "Description of goods", "Gross kg", "CBM"],
-      rows: containers.map((c, i) => [`${c} / SL${(hash(c) % 900000) + 100000}`, i === 0 ? `${f.cargoType} — HS ${hsCode}` : "Same as above", Math.round((f.weight * 1000) / containers.length).toLocaleString("en-US"), (f.volume / containers.length).toFixed(1)]),
+      rows: containers.map((c, i) => [`${c} / seal to be assigned`, i === 0 ? `${f.cargoType} — HS ${hsCode}` : "Same as above", Math.round((f.weight * 1000) / containers.length).toLocaleString("en-US"), (f.volume / containers.length).toFixed(1)]),
       totals: [{ label: "Said to contain", value: `${pkgs} packages` }],
-      marks: "DRAFT — NOT NEGOTIABLE",
+      marks: "DRAFT — NOT NEGOTIABLE — NOT SUBMITTED TO ANY AUTHORITY",
     },
   ];
   return {
@@ -168,7 +222,7 @@ export function simulatePlan(f: CargoForm, presetSteps?: string[], hsQuery?: str
     ],
     options,
     customs: { hsCode, description, confidence, tariffs, totalLanded: tariffs.reduce((s, t) => s + t.amount, 0) },
-    risks: {
+    risks: ov.risks ?? {
       congestion: d.region === "AF" ? 41 : 22,
       customs: d.region === "AF" ? 34 : 12,
       weather: 27,

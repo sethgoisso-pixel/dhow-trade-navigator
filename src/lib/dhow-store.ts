@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from "react";
 import { toast } from "sonner";
 import { SCENARIOS, type CargoForm, type Scenario } from "./dhow-data";
-import { type Plan, type PlanSource } from "./dhow-plan";
+import type { Plan, PlanSource } from "./dhow-plan";
 import { planShipment } from "./dhow-ai.functions";
 import { saveDossier } from "./dhow-dossiers.functions";
 
@@ -83,9 +83,9 @@ function buildDispatchesForPlan(ref: string, form: CargoForm, plan: Plan): Dispa
       id: `DSP-${shortRef}-01`,
       dossierRef: ref,
       corridor: `${form.origin} → ${form.destination}`,
-      title: `Slot Allocation & Booking: ${bestOption?.name ?? "Multimodal Express"}`,
-      detail: `Lock priority container space on ${viaText} corridor · Est. transit: ${bestOption?.days ?? 12} days`,
-      saving: `-$${Math.round((form.declaredValue * 0.03) + 1200).toLocaleString()} vs Spot Rate`,
+      title: `Booking request draft: ${bestOption?.name ?? "Multimodal Express"}`,
+      detail: `Request priority container space via ${viaText} · Est. transit: ${bestOption?.days ?? 12} days`,
+      saving: bestOption ? `Model estimate $${Math.round(bestOption.cost).toLocaleString("en-US")} (not a carrier quote)` : "Model estimate (not a carrier quote)",
       status: "pending",
       createdAt: now(),
     },
@@ -93,9 +93,9 @@ function buildDispatchesForPlan(ref: string, form: CargoForm, plan: Plan): Dispa
       id: `DSP-${shortRef}-02`,
       dossierRef: ref,
       corridor: `${form.origin} → ${form.destination}`,
-      title: `Pre-file Customs Declaration (HS ${plan.customs.hsCode})`,
-      detail: `Submit digital clearance dossier via Dubai Trade Mirsal II & ${form.destination} single window`,
-      saving: "Zero dwell demurrage guarantee",
+      title: `Customs pre-declaration draft (HS ${plan.customs.hsCode})`,
+      detail: `Clearance dossier prepared for the ${form.destination} single window and Dubai Trade (Mirsal II); to be reviewed by a licensed customs broker before filing`,
+      saving: "Draft for broker review",
       status: "pending",
       createdAt: now(),
     },
@@ -114,51 +114,65 @@ export async function runAgent(scenario: Scenario | null) {
     stepIndex: 0,
     completed: false,
     plan: null,
-    steps: scenario
-      ? scenario.steps
-      : [
-          "Analyzing trade route & carrier schedules…",
-          "Checking tariff codes & customs duties…",
-          "Synthesizing multimodal options via Dubai…",
-        ],
+    steps: scenario ? ["Running the agent's tools…"] : ["The AI agent is choosing and calling its tools…"],
   });
   pushLog(scenario ? `▶ Demo scenario loaded: ${scenario.title}` : `▶ New cargo request: ${form.origin} → ${form.destination}`, "ok");
   toast.info("Dhow agent is reasoning…", { description: scenario?.subtitle ?? `${form.origin} → ${form.destination}` });
 
-  let plan: Plan;
-  let source: PlanSource;
-  try {
-    const r = await planShipment({ data: form });
-    plan = r.plan;
-    source = r.source;
-    if (r.note) { pushLog(`ℹ ${r.note}`, "info"); }
-  } catch (err) {
-    set({ running: false, thinking: false });
-    const msg = err instanceof Error ? err.message : "Connection failed";
-    pushLog(`✕ AI Engine error: ${msg}`, "warn");
-    toast.error("AI Agent Error", { description: "Unable to reach the AI model. Check your credits or try again." });
-    return;
+  let plan: Plan | null = null;
+  let source: PlanSource = "tools";
+  let failure: string | null = null;
+  if (scenario) {
+    // Presets run the real tool pipeline in the browser: no AI call, no credits, and a real trace.
+    const { runToolPipeline } = await import("./agent/agent");
+    const { fetchMaritimeWeather, toSeaState } = await import("./dhow-weather");
+    const sea = toSeaState(await fetchMaritimeWeather().catch(() => []));
+    const r = runToolPipeline(form, { hsQuery: scenario.hsQuery, sea });
+    if (r.ok) plan = r.plan; else failure = r.error;
+    source = "preset";
+  } else {
+    try {
+      const r = await planShipment({ data: form });
+      plan = r.plan;
+      source = r.source;
+      failure = r.error;
+      if (r.note && r.plan) { pushLog(`ℹ ${r.note}`, "warn"); toast.warning("Ran without the AI model", { description: r.note }); }
+    } catch (err) {
+      // The server is unreachable: the tools still run locally, and the result says so.
+      const { runToolPipeline } = await import("./agent/agent");
+      const { fetchMaritimeWeather, toSeaState } = await import("./dhow-weather");
+      const sea = toSeaState(await fetchMaritimeWeather().catch(() => []));
+      const r = runToolPipeline(form, { sea });
+      if (r.ok) plan = r.plan; else failure = r.error;
+      source = "tools";
+      pushLog(`⚠ AI engine unreachable (${err instanceof Error ? err.message : "connection failed"}) — ran the tool pipeline without AI`, "warn");
+    }
   }
 
   if (my !== runId) return;
-  set({ plan, planSource: source, steps: plan.reasoningSteps, thinking: false, stepIndex: 0, dossierRef: null });
+  if (!plan) {
+    set({ running: false, thinking: false, completed: false, stepIndex: -1, plan: null, planSource: null });
+    pushLog(`✕ ${failure ?? "Could not plan this shipment"}`, "warn");
+    toast.error("Could not plan this shipment", { description: failure ?? undefined });
+    return;
+  }
+  const finalPlan: Plan = plan;
+  set({ plan: finalPlan, planSource: source, steps: finalPlan.reasoningSteps, thinking: false, stepIndex: 0, dossierRef: null });
 
-  // Sauvegarde réelle du dossier
-  saveDossier({ data: { origin: form.origin, destination: form.destination, cargo: form as never, plan: plan as never, source } })
+  // Persist the dossier (Supabase) and prepare the operational drafts linked to it.
+  saveDossier({ data: { origin: form.origin, destination: form.destination, cargo: form as never, plan: finalPlan as never, source } })
     .then((r) => {
       if (my === runId && r.reference) {
         set({ dossierRef: r.reference });
         pushLog(`✓ Dossier saved: ${r.reference}`, "ok");
-
-        // Création des ordres d'opération réels pour l'Autonomous Dispatch
-        const newDispatches = buildDispatchesForPlan(r.reference, form, plan);
+        const newDispatches = buildDispatchesForPlan(r.reference, form, finalPlan);
         set({ dispatches: [...newDispatches, ...state.dispatches] });
-        pushLog(`⚡ 2 operational dispatches generated for ${r.reference}`, "agent");
+        pushLog(`⚡ 2 operational drafts prepared for ${r.reference}`, "agent");
       }
     })
     .catch(() => {});
 
-  const steps = plan.reasoningSteps;
+  const steps = finalPlan.reasoningSteps;
   const tick = (i: number) => {
     if (my !== runId) return;
     pushLog(steps[i]!, "agent");
@@ -167,8 +181,8 @@ export async function runAgent(scenario: Scenario | null) {
     else
       timer = setTimeout(() => {
         set({ running: false, completed: true, stepIndex: steps.length });
-        pushLog(`✓ Plan complete — ${plan.corridor}`, "ok");
-        toast.success("Optimal plan ready", { description: plan.corridor });
+        pushLog(`✓ Plan complete — ${finalPlan.corridor}`, "ok");
+        toast.success("Plan ready", { description: finalPlan.corridor });
       }, 500);
   };
   timer = setTimeout(() => tick(0), 200);
@@ -177,10 +191,15 @@ export async function runAgent(scenario: Scenario | null) {
 export function resolveDispatch(did: string, status: "approved" | "rejected") {
   const d = state.dispatches.find((x) => x.id === did);
   set({ dispatches: state.dispatches.map((x) => (x.id === did ? { ...x, status } : x)) });
-  pushLog(`${status === "approved" ? "✓ Executed" : "✕ Cancelled"} ${did}: ${d?.title}`, status === "approved" ? "ok" : "warn");
-  status === "approved" ? toast.success(`${did} dispatched`, { description: d?.title }) : toast(`${did} rejected`);
+  pushLog(`${status === "approved" ? "✓ Approved (sample action, nothing was sent)" : "✕ Rejected"} ${did}: ${d?.title}`, status === "approved" ? "ok" : "warn");
+  status === "approved" ? toast.success(`${did} approved`, { description: "Sample action: nothing was sent to a carrier or customs." }) : toast(`${did} rejected`);
 }
 
+let ambientStarted = false;
+/** Logs real startup information only. (The previous version looped invented "live" shipment events.) */
 export function startAmbient() {
-  // Désactivé : aucune fausse activité en arrière-plan
+  if (ambientStarted) return;
+  ambientStarted = true;
+  pushLog("Dhow ready. Tools loaded: resolve_port, search_hs_code (HS-2022, 5,613 subheadings), screen_compliance, estimate_routes, estimate_landed_cost", "info");
+  pushLog("Run a demo scenario or a custom cargo request: every step below is a real tool call", "info");
 }

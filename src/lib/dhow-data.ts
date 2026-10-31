@@ -16,7 +16,6 @@ export type Scenario = {
   value: number;
   units: string;
   form: CargoForm;
-  steps: string[];
 };
 
 export const PORTS = [
@@ -64,17 +63,6 @@ export const SCENARIOS: Scenario[] = [
       declaredValue: 312000,
       deadline: inDays(32),
     },
-    steps: [
-      "Parsing cargo manifest: 1,250 × 400W monocrystalline PV modules, 8 string inverters",
-      "Querying 14 carriers on CN → AE → BJ corridor…",
-      "Analyzing weather disruption in Suez Canal & Bab-el-Mandeb risk feed",
-      "Matched Carrier Maersk with -12% contract rate (2 × 40' HC)",
-      "Classified HS Code 8541.43 for Solar Panels (confidence 97.8%)",
-      "Applying ECOWAS CET & Benin renewable-energy duty exemption",
-      "Scheduling transshipment at Jebel Ali T3 — 36h dwell window",
-      "Generating Commercial Invoice, Packing List & draft B/L",
-      "Optimal route locked: Multimodal via Jebel Ali — reliability 94%",
-    ],
   },
   {
     id: "electronics",
@@ -92,17 +80,6 @@ export const SCENARIOS: Scenario[] = [
       declaredValue: 1450000,
       deadline: inDays(9),
     },
-    steps: [
-      "Parsing cargo manifest: 10,000 units, lithium battery (UN3481) flagged",
-      "Checking DG compliance for Li-ion air shipment (IATA PI 967)",
-      "Comparing sea-air via Jebel Ali vs direct air to Dubai World Central",
-      "Matched Carrier Emirates SkyCargo with -9% block-space rate",
-      "Classified HS Code 8517.13 for Smartphones (confidence 99.1%)",
-      "Calculating UAE 5% customs duty + 5% VAT on CIF value",
-      "Pre-filing Dubai Trade declaration — free zone transfer to DLC",
-      "Generating Commercial Invoice, Packing List & draft AWB/B/L",
-      "Optimal route locked: Sea-Air via Jebel Ali → DWC — reliability 96%",
-    ],
   },
 ];
 

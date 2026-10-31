@@ -1,79 +1,46 @@
 import type { Dispatch } from "./dhow-store";
+import { sha256Hex } from "./agent/fingerprint";
 
+/**
+ * Draft payload for a future TMS integration. It is NOT an IATA ONE Record or UN/CEFACT message and
+ * it makes no compliance claim: it only describes an approved draft and carries a SHA-256 fingerprint of its content.
+ */
 export interface TMSPayload {
-  protocol: "IATA-ONE-Record/UN-CEFACT-v2";
-  event: "DISPATCH_LOCKED_AND_EXECUTED";
+  format: "dhow-draft-v1";
+  event: "DISPATCH_DRAFT_APPROVED";
   timestamp: string;
-  auditSignature: string;
+  /** SHA-256 (Web Crypto) of the canonical JSON of `dispatch`. Detects changes; it is not a signature. */
+  contentSha256: string;
   dispatch: {
     id: string;
     title: string;
-    corridor?: string;
-    dossierRef?: string;
+    corridor?: string | undefined;
+    dossierRef?: string | undefined;
     saving: string;
   };
-  telemetry: {
-    engine: "Dhow Autonomous Trade Navigator";
-    environment: "Production / Neutral Sovereign Corridor";
-    mirsalIICompliant: true;
-  };
 }
 
-/** Génère un payload conforme aux standards d'échange logistique */
-export function buildTMSPayload(d: Dispatch): TMSPayload {
-  const ts = new Date().toISOString();
-  // Empreinte d'audit pseudo-HMAC unique basée sur l'id et le timestamp
-  const rawSig = `${d.id}:${d.dossierRef ?? "DIRECT"}:${ts}`;
-  let hash = 0;
-  for (let i = 0; i < rawSig.length; i++) {
-    hash = (hash << 5) - hash + rawSig.charCodeAt(i);
-    hash |= 0;
-  }
-  const hexHash = Math.abs(hash).toString(16).padStart(8, "0").toUpperCase();
-
+export async function buildTMSPayload(d: Dispatch): Promise<TMSPayload> {
+  const dispatch = { id: d.id, title: d.title, corridor: d.corridor, dossierRef: d.dossierRef, saving: d.saving };
   return {
-    protocol: "IATA-ONE-Record/UN-CEFACT-v2",
-    event: "DISPATCH_LOCKED_AND_EXECUTED",
-    timestamp: ts,
-    auditSignature: `SHA256:${hexHash}-${d.id}`,
-    dispatch: {
-      id: d.id,
-      title: d.title,
-      corridor: d.corridor,
-      dossierRef: d.dossierRef,
-      saving: d.saving,
-    },
-    telemetry: {
-      engine: "Dhow Autonomous Trade Navigator",
-      environment: "Production / Neutral Sovereign Corridor",
-      mirsalIICompliant: true,
-    },
+    format: "dhow-draft-v1",
+    event: "DISPATCH_DRAFT_APPROVED",
+    timestamp: new Date().toISOString(),
+    contentSha256: await sha256Hex(JSON.stringify(dispatch)),
+    dispatch,
   };
 }
 
-/** Émet un webhook HTTP POST réel vers le TMS connecté */
+/** Sends the payload by HTTP POST to a URL chosen by the user. Nothing calls this automatically. */
 export async function sendTMSWebhook(url: string, payload: TMSPayload): Promise<{ ok: boolean; status: number; message: string }> {
   try {
     const res = await fetch(url, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Dhow-Event": payload.event,
-        "X-Dhow-Signature": payload.auditSignature,
-      },
+      headers: { "Content-Type": "application/json", "X-Dhow-Event": payload.event, "X-Dhow-Content-Sha256": payload.contentSha256 },
       body: JSON.stringify(payload),
     });
-
-    return {
-      ok: res.ok,
-      status: res.status,
-      message: res.ok ? `200 OK · Webhook delivered to TMS` : `HTTP ${res.status} · Webhook rejected`,
-    };
+    return { ok: res.ok, status: res.status, message: res.ok ? `HTTP ${res.status} · delivered` : `HTTP ${res.status} · rejected` };
   } catch (err) {
-    return {
-      ok: false,
-      status: 0,
-      message: err instanceof Error ? `Network error: ${err.message}` : "Unable to reach endpoint",
-    };
+    return { ok: false, status: 0, message: err instanceof Error ? `Network error: ${err.message}` : "Unable to reach endpoint" };
   }
 }

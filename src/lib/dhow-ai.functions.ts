@@ -1,6 +1,11 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { simulatePlan, type Plan, type PlanSource } from "./dhow-plan";
+import type { Plan, PlanSource } from "./dhow-plan";
+import { runAgentLoop, runToolPipeline, type ModelJSON } from "./agent/agent";
+import type { TraceEvent } from "./agent/types";
+import { checkDutyRate, estimateLanded, hsDescription, isKnownHs, formatHs, normalizeHs, screenCompliance, searchHS } from "./agent/tools";
+import { lookupCity } from "./dhow-plan";
+import { fetchMaritimeWeather, toSeaState } from "./dhow-weather";
 
 const Input = z.object({
   origin: z.string().min(2).max(120),
@@ -12,50 +17,27 @@ const Input = z.object({
   deadline: z.string().max(20),
 });
 
-const S = { type: "string" } as const;
-const N = { type: "number" } as const;
-const obj = (p: Record<string, unknown>) => ({ type: "object", properties: p, required: Object.keys(p), additionalProperties: false });
-const arr = (items: unknown) => ({ type: "array", items });
+export type AgentResponse = {
+  plan: Plan | null;
+  source: PlanSource;
+  note: string | null;
+  error: string | null;
+  trace: TraceEvent[];
+};
 
-const SCHEMA = obj({
-  reasoningSteps: arr(S),
-  corridor: S,
-  waypoints: arr(obj({ name: S, lat: N, lng: N, role: { type: "string", enum: ["origin", "hub", "destination"] } })),
-  options: arr(obj({ key: { type: "string", enum: ["A", "B", "C"] }, name: S, via: S, days: N, cost: N, co2: N, reliability: N })),
-  customs: obj({ hsCode: S, description: S, confidence: N, tariffs: arr(obj({ label: S, rate: S, amount: N })), totalLanded: N }),
-  risks: obj({ congestion: N, customs: N, weather: N, briefing: S }),
-  documents: arr(obj({
-    kind: { type: "string", enum: ["invoice", "packing", "bl"] }, title: S, reference: S, incoterms: S,
-    parties: arr(obj({ role: S, name: S, address: S })),
-    meta: arr(obj({ label: S, value: S })),
-    columns: arr(S), rows: arr(arr(S)),
-    totals: arr(obj({ label: S, value: S })),
-    marks: S,
-  })),
-});
-
-const INSTRUCTIONS = `You are Dhow, an autonomous trade & logistics navigator headquartered in Dubai's neutral trade corridor.
-Given a cargo request, produce a realistic logistics plan:
-- reasoningSteps: 6-8 concise sequential steps (parse cargo, check sea/air corridors, chokepoints Suez/Red Sea/Malacca/Panama, carrier matching, HS classification, duty calculation, documents).
-- corridor: hub chain like "Douala → Antwerp → Frankfurt (Rhine rail)".
-- waypoints: exactly 3 in order origin, hub (strategic transshipment, Jebel Ali when sensible, otherwise the best regional hub), destination, with accurate decimal lat/lng.
-- options: exactly 3: A fastest (sea-air or direct air), B cheapest (ocean FCL or road), C Dhow AI optimized multimodal (recommended, best reliability). days integers, cost USD integers, co2 tons with 1 decimal, reliability 0-100.
-- customs: 6-digit HS code formatted like 0901.11, confidence 0-100, tariffs tailored to the destination country (import duty, local VAT/TVA, port fees, automated brokerage fee) with USD amounts computed on CIF value; totalLanded = sum.
-- risks: percentages 0-100 and a 1-2 sentence intelligence briefing.
-- documents: exactly 3 with kind invoice ("Commercial Invoice"), packing ("Packing List"), bl ("Draft Bill of Lading" for ocean or "Draft Air Waybill" for air). Use Incoterms 2020 notation, plausible party names/addresses, itemized rows matching columns, container numbers like MSKU1234567 / CMAU7654321, formatted currency strings like $127,680.`;
-
-async function callGateway(apiKey: string, input: z.infer<typeof Input>): Promise<Plan> {
+/** One structured model call through the Lovable AI Gateway (streamed, strict JSON schema). */
+async function callModelJSON(apiKey: string, req: Parameters<ModelJSON>[0]): Promise<unknown> {
   const res = await fetch("https://ai.gateway.lovable.dev/v1/responses", {
     method: "POST",
     headers: { "Content-Type": "application/json", "Lovable-API-Key": apiKey, Authorization: `Bearer ${apiKey}`, "X-Lovable-AIG-SDK": "fetch" },
     body: JSON.stringify({
       model: "openai/gpt-6-astra",
-      instructions: INSTRUCTIONS,
-      input: `Cargo request JSON: ${JSON.stringify(input)}`,
+      instructions: req.instructions,
+      input: req.input,
       stream: true,
       store: false,
       reasoning: { effort: "low" },
-      text: { format: { type: "json_schema", name: "dhow_plan", strict: true, schema: SCHEMA } },
+      text: { format: { type: "json_schema", name: req.schemaName, strict: true, schema: req.schema } },
     }),
   });
   if (!res.ok || !res.body) {
@@ -85,22 +67,43 @@ async function callGateway(apiKey: string, input: z.infer<typeof Input>): Promis
       }
     }
   }
-  const plan = JSON.parse(text) as Plan;
-  if (plan.options?.length !== 3 || plan.waypoints?.length < 2 || !plan.documents?.length) throw new Error("Incomplete AI plan");
-  return plan;
+  return JSON.parse(text) as unknown;
+}
+
+/**
+ * Protects the demo's AI credits: at most DEMO_AI_RUNS_PER_HOUR agent runs per hour per server instance.
+ * Beyond that the app still works, using the tool pipeline without AI.
+ */
+const DEMO_AI_RUNS_PER_HOUR = 40;
+let bucket = { hour: -1, used: 0 };
+function allowAiRun(): boolean {
+  const hour = Math.floor(Date.now() / 3_600_000);
+  if (bucket.hour !== hour) bucket = { hour, used: 0 };
+  if (bucket.used >= DEMO_AI_RUNS_PER_HOUR) return false;
+  bucket.used++;
+  return true;
 }
 
 export const planShipment = createServerFn({ method: "POST" })
   .inputValidator((d) => Input.parse(d))
-  .handler(async ({ data }): Promise<{ plan: Plan; source: PlanSource; note: string | null }> => {
+  .handler(async ({ data }): Promise<AgentResponse> => {
     const apiKey = process.env["LOVABLE_API_KEY"];
-    try {
-      if (!apiKey) throw new Error("AI not configured");
-      return { plan: await callGateway(apiKey, data), source: "ai", note: null };
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : "AI unavailable";
-      return { plan: simulatePlan(data), source: "simulated", note: `${msg} — switched to local simulation` };
+    const sea = toSeaState(await fetchMaritimeWeather().catch(() => []));
+    let note: string | null = null;
+    if (!apiKey) note = "AI not configured";
+    else if (!allowAiRun()) note = "Demo AI quota reached for this hour";
+    else {
+      try {
+        const r = await runAgentLoop(data, (req) => callModelJSON(apiKey, req), { sea });
+        if (r.ok) return { plan: r.plan, source: "ai", note: null, error: null, trace: r.trace };
+        note = r.error;
+      } catch (e) {
+        note = e instanceof Error ? e.message : "AI unavailable";
+      }
     }
+    const p = runToolPipeline(data, { sea });
+    if (p.ok) return { plan: p.plan, source: "tools", note: `${note} — ran the tool pipeline without AI`, error: null, trace: p.trace };
+    return { plan: null, source: "tools", note, error: p.error, trace: p.trace };
   });
 
 // --- Ajout à coller à la fin de src/lib/dhow-ai.functions.ts ---
@@ -120,56 +123,99 @@ export type CustomsResult = {
   tariffs: Array<{ label: string; rate: string; amount: number }>;
   totalDuties: number;
   requiredDocuments: string[];
+  /** "ai" when the model chose among verified candidates, "tools" when no AI was involved. */
+  source: "ai" | "tools";
+  /** What was verified and what is assumed, shown to the user. */
+  notes: string[];
 };
 
-const CUSTOMS_SCHEMA = obj({
-  hsCode: S,
-  description: S,
-  category: S,
-  confidence: N,
-  regulatoryNotes: S,
-  tariffs: arr(obj({ label: S, rate: S, amount: N })),
-  totalDuties: N,
-  requiredDocuments: arr(S),
-});
+const CLASSIFY_SCHEMA = {
+  type: "object",
+  properties: {
+    hs_code: { type: "string" },
+    category: { type: "string" },
+    duty_rate_percent: { type: "number" },
+    regulatory_notes: { type: "string" },
+    required_documents: { type: "array", items: { type: "string" } },
+  },
+  required: ["hs_code", "category", "duty_rate_percent", "regulatory_notes", "required_documents"],
+  additionalProperties: false,
+} as const;
 
+const BASE_DOCS = ["Commercial invoice", "Packing list", "Bill of lading or air waybill", "Certificate of origin (needed to claim preferential duty)"];
+
+/**
+ * Classifies a product. The model only chooses among real HS-2022 candidates and proposes a duty band;
+ * the code is verified against the nomenclature and every amount is computed by the tools, not by the model.
+ */
 export const classifyCommodity = createServerFn({ method: "POST" })
   .inputValidator((d) => CustomsInput.parse(d))
   .handler(async ({ data }): Promise<CustomsResult> => {
+    const dest = lookupCity(data.destination);
+    if (!dest) throw new Error(`Dhow does not know "${data.destination}" yet. Try a major port or city, for example Jebel Ali, Dubai, Cotonou, Lagos, Mombasa or Rotterdam.`);
+    const candidates = searchHS(data.query, 8);
+    if (candidates.length === 0) throw new Error(`No HS subheading matches "${data.query}". Describe the product in more detail.`);
+
+    let pick = candidates[0]!;
+    let proposedDuty: number | null = null;
+    let category = `HS chapter ${pick.code.slice(0, 2)}`;
+    let aiNotes = "";
+    let aiDocs: string[] = [];
+    let source: "ai" | "tools" = "tools";
+    const notes: string[] = [];
+
     const apiKey = process.env["LOVABLE_API_KEY"];
-    if (!apiKey) throw new Error("AI gateway non configurée");
-
-    const instructions = `You are Dhow Customs Intelligence, an authoritative trade tariff and HS code classification engine headquartered in Dubai's neutral corridor.
-Given a commodity name/description, a destination port/country, and a declared CIF value in USD:
-1. Determine the accurate 6-digit Harmonized System (HS) code (WCO 2022/2026 nomenclature, formatted like "8541.43").
-2. Provide the official tariff nomenclature description and broad chapter/category.
-3. Calculate realistic destination tariffs based on the destination country (e.g. GCC Common Customs Law for Dubai: 5% duty, 5% VAT; or relevant national tariffs for Africa/Europe/Asia).
-4. Provide regulatory compliance requirements (e.g. conformity certificates, import permits, Dubai Trade / Saber / Soncap / CE declarations).
-5. List strictly mandatory documentation.`;
-
-    const res = await fetch("https://ai.gateway.lovable.dev/v1/responses", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Lovable-API-Key": apiKey,
-        Authorization: `Bearer ${apiKey}`,
-        "X-Lovable-AIG-SDK": "fetch",
-      },
-      body: JSON.stringify({
-        model: "openai/gpt-6-astra",
-        instructions,
-        input: `Commodity: "${data.query}". Destination: "${data.destination}". Declared CIF Value: $${data.declaredValue} USD.`,
-        stream: false,
-        store: false,
-        text: { format: { type: "json_schema", name: "customs_classification", strict: true, schema: CUSTOMS_SCHEMA } },
-      }),
-    });
-
-    if (!res.ok) {
-      throw new Error(`AI error (${res.status})`);
+    if (apiKey && allowAiRun()) {
+      try {
+        const raw = (await callModelJSON(apiKey, {
+          schemaName: "dhow_classification",
+          schema: CLASSIFY_SCHEMA,
+          instructions: `You are a customs classification assistant. You receive a product description, a destination, and a list of real HS-2022 candidate subheadings found by a search tool. Choose the best candidate by reading its full description (mind phrases such as "other than" and "not assembled"). Never output a code that is not in the candidate list. Propose the import duty rate as a band of the destination's customs union (ECOWAS CET 0/5/10/20/35, GCC 0/5, EAC 0/10/25/35, CEMAC 0/5/10/20/30). Write 2 sentences of regulatory notes (permits, standards, conformity marking) and list the documents needed for clearance. Be explicit when you are unsure.`,
+          input: `Product: "${data.query}"\nDestination: ${data.destination} (${dest.country})\nCandidates:\n${candidates.map((c) => `${c.code} | ${c.description}`).join("\n")}`,
+        })) as { hs_code?: unknown; category?: unknown; duty_rate_percent?: unknown; regulatory_notes?: unknown; required_documents?: unknown };
+        const code = typeof raw.hs_code === "string" ? formatHs(normalizeHs(raw.hs_code)) : "";
+        const chosen = candidates.find((c) => c.code === code);
+        if (chosen && isKnownHs(code)) {
+          pick = chosen;
+          source = "ai";
+          if (typeof raw.duty_rate_percent === "number") proposedDuty = raw.duty_rate_percent;
+          if (typeof raw.category === "string" && raw.category.trim()) category = raw.category.trim().slice(0, 120);
+          if (typeof raw.regulatory_notes === "string") aiNotes = raw.regulatory_notes.trim().slice(0, 600);
+          if (Array.isArray(raw.required_documents)) aiDocs = raw.required_documents.filter((x): x is string => typeof x === "string").slice(0, 8);
+        } else {
+          notes.push("The model proposed a code outside the verified candidates, so the top search match was used.");
+        }
+      } catch (e) {
+        notes.push(`${e instanceof Error ? e.message : "AI unavailable"}: used the search match without AI.`);
+      }
+    } else if (!apiKey) {
+      notes.push("AI not configured: used the search match without AI.");
+    } else {
+      notes.push("Demo AI quota reached for this hour: used the search match without AI.");
     }
 
-    const payload = (await res.json()) as { output_text?: string };
-    if (!payload.output_text) throw new Error("Réponse IA vide");
-    return JSON.parse(payload.output_text) as CustomsResult;
+    const defaultBand = ({ AF: 10, ME: 5, EU: 5, AS: 10, AM: 5 } as const)[dest.region];
+    const duty = checkDutyRate(dest.country, proposedDuty ?? defaultBand);
+    const landed = estimateLanded({ declaredValue: data.declaredValue, dutyRate: duty.rate, country: dest.country, region: dest.region });
+    const screen = screenCompliance({ origin: "", destination: data.destination, cargoType: data.query }, pick.code);
+    const docs = aiDocs.length ? aiDocs : [...BASE_DOCS];
+    if (screen.dangerousGoods) docs.push("Dangerous goods declaration (lithium batteries)");
+
+    notes.unshift(`HS ${pick.code} exists in the WCO HS-2022 nomenclature; the match score measures how well the text matches, not legal certainty.`);
+    notes.push(proposedDuty === null ? `Duty ${duty.rate}% is an assumed default band for ${dest.country}.` : duty.note);
+    notes.push(...landed.assumptions, "Verify the HS-level tariff with a licensed customs broker before filing.");
+
+    const regulatory = [aiNotes, ...screen.flags, screen.dangerousGoods ?? "", screen.disclaimer].filter(Boolean).join(" ");
+    return {
+      hsCode: pick.code,
+      description: hsDescription(pick.code) ?? pick.description,
+      category,
+      confidence: Math.round(pick.score * 100),
+      regulatoryNotes: regulatory,
+      tariffs: landed.lines,
+      totalDuties: landed.totalTaxesAndFees,
+      requiredDocuments: docs,
+      source,
+      notes,
+    };
   });

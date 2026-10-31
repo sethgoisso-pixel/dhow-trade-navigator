@@ -8,6 +8,9 @@ export type ChokepointWeather = {
   windWaveHeight: number;
   status: "Calm" | "Moderate" | "Rough";
   advisory: string;
+  /** true only when the value was measured by the API just now; false for the built-in fallback value. */
+  live: boolean;
+  fetchedAt: string;
 };
 
 const CHOKEPOINTS = [
@@ -59,7 +62,7 @@ export async function fetchMaritimeWeather(): Promise<ChokepointWeather[]> {
     const lons = CHOKEPOINTS.map((c) => c.lon).join(",");
     const url = `https://marine-api.open-meteo.com/v1/marine?latitude=${lats}&longitude=${lons}&current=wave_height,wind_wave_height`;
 
-    const res = await fetch(url);
+    const res = await fetch(url, { signal: AbortSignal.timeout(4000) });
     if (!res.ok) throw new Error("Status " + res.status);
 
     const data = await res.json();
@@ -67,7 +70,8 @@ export async function fetchMaritimeWeather(): Promise<ChokepointWeather[]> {
 
     cachedWeather = CHOKEPOINTS.map((cp, idx) => {
       const current = results[idx]?.current;
-      const waveHeight = typeof current?.wave_height === "number" ? current.wave_height : 0.6;
+      const measured = typeof current?.wave_height === "number";
+      const waveHeight = measured ? current.wave_height : 0.6;
       const windWaveHeight = typeof current?.wind_wave_height === "number" ? current.wind_wave_height : 0.4;
       const { status, advisory } = computeStatus(waveHeight);
 
@@ -77,6 +81,8 @@ export async function fetchMaritimeWeather(): Promise<ChokepointWeather[]> {
         windWaveHeight,
         status,
         advisory,
+        live: measured,
+        fetchedAt: new Date().toISOString(),
       };
     });
 
@@ -89,8 +95,19 @@ export async function fetchMaritimeWeather(): Promise<ChokepointWeather[]> {
       waveHeight: 0.8,
       windWaveHeight: 0.5,
       status: "Calm",
-      advisory: "Optimal Navigation",
+      advisory: "Fallback value (API unreachable)",
+      live: false,
+      fetchedAt: new Date().toISOString(),
     }));
   }
   }
-    
+
+/** Compact sea state for the agent's risk model (see src/lib/agent/tools.ts). */
+export function toSeaState(points: ChokepointWeather[]): { live: boolean; fetchedAt: string; waves: { hormuz: number; bab_el_mandeb: number; malacca: number } } {
+  const wave = (id: string) => points.find((p) => p.id === id)?.waveHeight ?? 0;
+  return {
+    live: points.length === 3 && points.every((p) => p.live),
+    fetchedAt: points[0]?.fetchedAt ?? new Date().toISOString(),
+    waves: { hormuz: wave("hormuz"), bab_el_mandeb: wave("bab_el_mandeb"), malacca: wave("malacca") },
+  };
+}
