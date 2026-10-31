@@ -2,15 +2,13 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { Clock, Container, TrendingDown, Workflow, ExternalLink, ArrowRight, ShieldCheck } from "lucide-react";
 import { RouteMap } from "@/components/dhow/RouteMap";
 import { AIBadge, PageTitle, Panel } from "@/components/dhow/ui";
-import { useDhow } from "@/lib/dhow-store";
-import { listRecentDossiers, type DossierSummary } from "@/lib/dhow-dossiers.functions";
+import { useEffect, useState } from "react";
+import { useDhow, readMyDossierRefs } from "@/lib/dhow-store";
+import { listMyDossiers, type DossierSummary } from "@/lib/dhow-dossiers.functions";
 import { seo } from "@/lib/seo";
 import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/")({
-  loader: async () => {
-    return await listRecentDossiers().catch(() => [] as DossierSummary[]);
-  },
   head: () =>
     seo(
       "Mission Control — Dhow AI Logistics Agent",
@@ -20,8 +18,19 @@ export const Route = createFileRoute("/")({
 });
 
 function MissionControl() {
-  const recentDossiers = Route.useLoaderData();
+  const [recentDossiers, setRecentDossiers] = useState<DossierSummary[]>([]);
   const { dispatches, plan, dossierRef } = useDhow();
+
+  // Only dossiers saved from this browser are listed; nothing from other visitors is exposed.
+  useEffect(() => {
+    const refs = readMyDossierRefs();
+    if (refs.length === 0) return;
+    let cancelled = false;
+    listMyDossiers({ data: { references: refs } })
+      .then((rows) => { if (!cancelled) setRecentDossiers(rows); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [dossierRef]);
   const pending = dispatches.filter((d) => d.status === "pending").length;
 
   const kpis = [
@@ -30,7 +39,7 @@ function MissionControl() {
       label: "Saved Trade Dossiers",
       value: String(recentDossiers.length),
       unit: "saved",
-      note: recentDossiers.length > 0 ? "Latest 10 runs, newest first" : "No dossiers saved yet",
+      note: recentDossiers.length > 0 ? "Your latest runs on this browser" : "No dossiers saved yet",
       gold: true,
     },
     {
@@ -104,7 +113,7 @@ function MissionControl() {
       <div className="mt-6">
                 <Panel title="Recent Trade Dossiers">
           <p className="-mt-3 mb-4 text-xs text-muted-foreground">
-            Shipment dossiers saved in the Lovable Cloud database. A reference identifies each saved plan; it is not a tamper-proof or notarised record.
+            Your shipment dossiers, saved in the Lovable Cloud database. Only runs made from this browser are listed; other visitors' dossiers are never shown. A reference identifies each saved plan; it is not a tamper-proof or notarised record.
           </p>
 
           {recentDossiers.length === 0 ? (
