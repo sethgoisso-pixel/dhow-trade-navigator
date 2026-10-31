@@ -41,7 +41,7 @@ export function RouteResults({ plan }: { plan: Plan }) {
           );
         })}
       </div>
-      <Panel title="Risk & Disruption Index" action={<AIBadge>AI calculated</AIBadge>}>
+      <Panel title="Risk & Disruption Index" action={<AIBadge>Heuristic estimate</AIBadge>}>
         <div className="grid gap-4 sm:grid-cols-3">
           <Meter label="Port congestion probability" value={Math.round(risks.congestion)} />
           <Meter label="Customs delay probability" value={Math.round(risks.customs)} />

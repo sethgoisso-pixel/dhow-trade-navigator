@@ -5,7 +5,7 @@ import { DEFAULT_ROUTE, computeRoutePhysics } from "@/lib/dhow-geo";
 
 const GlobalMap = lazy(() => import("./GlobalMap"));
 
-export function RouteMap({ waypoints, title = "Live Trade Corridor" }: { waypoints?: GeoPoint[] | undefined; title?: string }) {
+export function RouteMap({ waypoints, title = "Trade Corridor" }: { waypoints?: GeoPoint[] | undefined; title?: string }) {
   const pts = waypoints?.length ? waypoints : DEFAULT_ROUTE;
     const skeleton = <div className="h-72 w-full animate-pulse bg-muted sm:h-96" />;
   const physics = computeRoutePhysics(pts);

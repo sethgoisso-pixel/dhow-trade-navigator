@@ -16,7 +16,7 @@ export function EventStream({ className = "" }: { className?: string }) {
         <Terminal className="size-4 text-gold" /> AI Agent Event Stream
         <span className="ml-auto flex items-center gap-1.5 text-[11px] text-muted-foreground">
           <span className={`size-1.5 rounded-full ${running ? "animate-pulse bg-gold" : "bg-success"}`} />
-          {running ? "REASONING" : "LIVE"}
+          {running ? "REASONING" : "LOG"}
         </span>
       </div>
       <div ref={ref} className="h-full min-h-0 flex-1 space-y-1 overflow-y-auto p-4 font-mono text-xs">
