@@ -6,7 +6,7 @@ import type { TraceEvent } from "./agent/types";
 import { checkDutyRate, estimateLanded, hsDescription, isKnownHs, formatHs, normalizeHs, screenCompliance, searchHS } from "./agent/tools";
 import { lookupCity } from "./dhow-plan";
 import { fetchMaritimeWeather, toSeaState } from "./dhow-weather";
-import { buildValuation, fetchReferencePrice, REFERENCE_COMMODITIES, seriesForHs } from "./dhow-reference";
+import { buildValuation, fetchReferencePriceDiag, REFERENCE_COMMODITIES, seriesForHs } from "./dhow-reference";
 
 const Input = z.object({
   origin: z.string().min(2).max(120),
@@ -100,11 +100,15 @@ export const planShipment = createServerFn({ method: "POST" })
     }
     const guess = searchHS(data.cargoType, 1)[0];
     const series = guess ? seriesForHs(guess.code) : null;
-    const ref = series ? await fetchReferencePrice(series) : null;
+    const fetched = series ? await fetchReferencePriceDiag(series) : null;
+    const ref = fetched?.ref ?? null;
     if (form.declaredValue <= 0 && !ref) {
+      const reason = fetched?.why
+        ? `The reference source (IMF via FRED) could not be read right now (${fetched.why}). Enter the invoice value to continue.`
+        : `Dhow has no sourced reference price for "${data.cargoType}". Reference prices exist for ${REFERENCE_COMMODITIES.join(", ")}.`;
       return {
         plan: null, source: "tools", note: null, trace: [],
-        error: `Enter the invoice value: Dhow has no sourced reference price for "${data.cargoType}". Reference prices exist for ${REFERENCE_COMMODITIES.join(", ")}.`,
+        error: `Enter the invoice value: ${reason}`,
       };
     }
     const valuation = buildValuation({ enteredUsd: data.declaredValue, tonnes: form.weight, ref });
@@ -145,11 +149,11 @@ export const planShipment = createServerFn({ method: "POST" })
       }
     }
     const p = runToolPipeline(form, { sea });
-    if (p.ok) return { plan: attach(p.plan), source: "tools", note: `${note} — ran the tool pipeline without AI`, error: null, trace: p.trace };
+    if (p.ok) return { plan: attach(p.plan), source: "tools", note: `${note} \u2014 ran the tool pipeline without AI`, error: null, trace: p.trace };
     return { plan: null, source: "tools", note, error: p.error, trace: p.trace };
   });
 
-// --- Ajout à coller à la fin de src/lib/dhow-ai.functions.ts ---
+// --- Customs classification ---
 
 const CustomsInput = z.object({
   query: z.string().min(2).max(200),
