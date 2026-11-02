@@ -123,6 +123,13 @@ export const planShipment = createServerFn({ method: "POST" })
       const out: Plan = { ...plan };
       if (v) {
         out.valuation = v;
+        if (v.basis === "reference") {
+          out.documents = out.documents.map((dc) =>
+            dc.kind === "invoice"
+              ? { ...dc, meta: [...dc.meta, { label: "Value basis", value: "Estimated from the IMF reference price. Replace with the real invoice value." }] }
+              : dc,
+          );
+        }
         if (v.flag) {
           out.compliance = {
             verdict: "review_required",

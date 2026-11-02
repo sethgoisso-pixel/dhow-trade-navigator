@@ -167,6 +167,12 @@ export type PlanOverrides = {
   risks?: Plan["risks"];
 };
 
+/** Perishable or temperature-controlled cargo (meat, fish, dairy, live plants, vegetables, fruit, vaccines) travels in reefer containers. */
+function needsReefer(hsCode: string, cargoType: string): boolean {
+  const ch = hsCode.replace(/[^0-9]/g, "").slice(0, 2);
+  return ["02", "03", "04", "06", "07", "08"].includes(ch) || hsCode.replace(/[^0-9]/g, "").startsWith("3002") || /cold chain|frozen|fresh|refrigerat|vaccine|2-8/i.test(cargoType);
+}
+
 /** Deterministic local plan: used for the preset demos and whenever the AI call is unavailable. */
 export function simulatePlan(f: CargoForm, presetSteps?: string[], hsQuery?: string, ov: PlanOverrides = {}): Plan {
   const o = lookupCity(f.origin) ?? { ...GEO["shanghai"]!, name: f.origin.split(",")[0]!.trim() || "Origin" };
@@ -190,7 +196,9 @@ export function simulatePlan(f: CargoForm, presetSteps?: string[], hsQuery?: str
     { label: "Dhow automated brokerage (assumed)", rate: "flat", amount: 180 },
   ];
   const ref = `DH-${o.code.slice(2)}${d.code.slice(2)}-${new Date().getFullYear()}-${(hash(f.origin + f.destination + f.cargoType) % 9000) + 1000}`;
-  const pkgs = Math.max(1, Math.ceil(f.volume * 9));
+  const reefer = needsReefer(hsCode, f.cargoType);
+  // Package count is an estimate (25 kg average per package); the shipper must confirm it.
+  const pkgs = Math.max(1, Math.ceil((f.weight * 1000) / 25));
   const containers = Array.from({ length: Math.max(1, Math.ceil(f.volume / 66)) }, (_, i) => `Container ${i + 1} (no. to be assigned)`);
   const parties = [
     { role: "Shipper / Exporter", name: "[Shipper name — to be completed]", address: `${o.name}, ${o.country}` },
@@ -203,24 +211,24 @@ export function simulatePlan(f: CargoForm, presetSteps?: string[], hsQuery?: str
       kind: "invoice", title: "Commercial Invoice", reference: `${ref}-CI`, incoterms: `CIF ${d.name} (Incoterms® 2020)`, parties,
       meta: [{ label: "Payment terms", value: "To be agreed between the parties" }, { label: "Country of origin", value: o.country }, { label: "Currency", value: "USD" }],
       columns: ["HS Code", "Description", "Qty", "Amount"],
-      rows: [[hsCode, description, `${pkgs} pkgs`, money(value)], ["—", "Ocean freight & insurance", "1 lot", money(value * 0.06)]],
+      rows: [[hsCode, description, `${pkgs} pkgs (est.)`, money(value)], ["-", "Ocean freight & insurance (assumed 6%)", "1 lot", money(value * 0.06)]],
       totals: [{ label: "FOB value", value: money(value) }, { label: "Total CIF value", value: money(cif) }],
       marks: `DHOW / ${hsCode} / ${d.code}`,
     },
     {
       kind: "packing", title: "Packing List", reference: `${ref}-PL`, incoterms: `CIF ${d.name} (Incoterms® 2020)`, parties,
-      meta: [{ label: "Gross weight", value: `${(f.weight * 1000).toLocaleString("en-US")} kg` }, { label: "Net weight", value: `${Math.round(f.weight * 930).toLocaleString("en-US")} kg` }, { label: "Volume", value: `${f.volume} CBM` }],
+      meta: [{ label: "Gross weight", value: `${(f.weight * 1000).toLocaleString("en-US")} kg` }, { label: "Net weight (est. 93%)", value: `${Math.round(f.weight * 930).toLocaleString("en-US")} kg` }, { label: "Volume", value: `${f.volume} CBM` }],
       columns: ["Container", "Type", "Packages", "Gross kg"],
-      rows: containers.map((c) => [c, "40' HC", String(Math.ceil(pkgs / containers.length)), Math.round((f.weight * 1000) / containers.length).toLocaleString("en-US")]),
-      totals: [{ label: "Total packages", value: String(pkgs) }, { label: "Total gross weight", value: `${(f.weight * 1000).toLocaleString("en-US")} kg` }],
+      rows: containers.map((c) => [c, reefer ? "40' RF (reefer)" : "40' HC", String(Math.ceil(pkgs / containers.length)), Math.round((f.weight * 1000) / containers.length).toLocaleString("en-US")]),
+      totals: [{ label: "Total packages (est.)", value: String(pkgs) }, { label: "Total gross weight", value: `${(f.weight * 1000).toLocaleString("en-US")} kg` }],
       marks: `DHOW / ${hsCode} / 1-UP`,
     },
     {
       kind: "bl", title: "Draft Bill of Lading", reference: `${ref}-BL`, incoterms: `CIF ${d.name} (Incoterms® 2020)`, parties,
-      meta: [{ label: "Carrier", value: "To be booked" }, { label: "Vessel / Voyage", value: "To be confirmed at booking" }, { label: "Port of loading", value: `${o.name} (${o.code})` }, { label: "Transshipment", value: `${hub.name} (${hub.code})` }, { label: "Port of discharge", value: `${d.name} (${d.code})` }, { label: "Freight", value: "PREPAID" }],
+      meta: [{ label: "Carrier", value: "To be booked" }, { label: "Vessel / Voyage", value: "To be confirmed at booking" }, { label: "Port of loading", value: `${o.name} (${o.code})` }, { label: "Transshipment", value: `${hub.name} (${hub.code})` }, { label: "Port of discharge", value: `${d.name} (${d.code})` }, { label: "Freight", value: "PREPAID" }, ...(reefer ? [{ label: "Temperature", value: "Reefer: set point to be specified by the shipper" }] : [])],
       columns: ["Container / Seal", "Description of goods", "Gross kg", "CBM"],
       rows: containers.map((c, i) => [`${c} / seal to be assigned`, i === 0 ? `${f.cargoType} — HS ${hsCode}` : "Same as above", Math.round((f.weight * 1000) / containers.length).toLocaleString("en-US"), (f.volume / containers.length).toFixed(1)]),
-      totals: [{ label: "Said to contain", value: `${pkgs} packages` }],
+      totals: [{ label: "Said to contain", value: `${pkgs} packages (est.)` }],
       marks: "DRAFT — NOT NEGOTIABLE — NOT SUBMITTED TO ANY AUTHORITY",
     },
   ];
