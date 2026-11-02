@@ -75,7 +75,7 @@ async function callModelJSON(apiKey: string, req: Parameters<ModelJSON>[0]): Pro
  * Protects the demo's AI credits: at most DEMO_AI_RUNS_PER_HOUR agent runs per hour per server instance.
  * Beyond that the app still works, using the tool pipeline without AI.
  */
-const DEMO_AI_RUNS_PER_HOUR = 40;
+const DEMO_AI_RUNS_PER_HOUR = 15;
 let bucket = { hour: -1, used: 0 };
 function allowAiRun(): boolean {
   const hour = Math.floor(Date.now() / 3_600_000);
