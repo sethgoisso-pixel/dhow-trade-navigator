@@ -6,13 +6,14 @@ import type { TraceEvent } from "./agent/types";
 import { checkDutyRate, estimateLanded, hsDescription, isKnownHs, formatHs, normalizeHs, screenCompliance, searchHS } from "./agent/tools";
 import { lookupCity } from "./dhow-plan";
 import { fetchMaritimeWeather, toSeaState } from "./dhow-weather";
+import { buildValuation, fetchReferencePrice, REFERENCE_COMMODITIES, seriesForHs } from "./dhow-reference";
 
 const Input = z.object({
   origin: z.string().min(2).max(120),
   destination: z.string().min(2).max(120),
   cargoType: z.string().min(2).max(200),
   weight: z.number().positive().max(100000),
-  volume: z.number().positive().max(100000),
+  volume: z.number().nonnegative().max(100000),
   declaredValue: z.number().nonnegative().max(1e10),
   deadline: z.string().max(20),
 });
@@ -89,20 +90,62 @@ export const planShipment = createServerFn({ method: "POST" })
   .handler(async ({ data }): Promise<AgentResponse> => {
     const apiKey = process.env["LOVABLE_API_KEY"];
     const sea = toSeaState(await fetchMaritimeWeather().catch(() => []));
+
+    // Optional inputs: volume and value. Estimates are always labelled, and the value is checked against a sourced benchmark.
+    const assumptions: string[] = [];
+    let form = data;
+    if (form.volume <= 0) {
+      form = { ...form, volume: Math.max(1, Math.round(form.weight * 2)) };
+      assumptions.push(`Volume not entered: estimated at 2 CBM per tonne (general-cargo assumption), ${form.volume} CBM.`);
+    }
+    const guess = searchHS(data.cargoType, 1)[0];
+    const series = guess ? seriesForHs(guess.code) : null;
+    const ref = series ? await fetchReferencePrice(series) : null;
+    if (form.declaredValue <= 0 && !ref) {
+      return {
+        plan: null, source: "tools", note: null, trace: [],
+        error: `Enter the invoice value: Dhow has no sourced reference price for "${data.cargoType}". Reference prices exist for ${REFERENCE_COMMODITIES.join(", ")}.`,
+      };
+    }
+    const valuation = buildValuation({ enteredUsd: data.declaredValue, tonnes: form.weight, ref });
+    if (valuation && valuation.basis === "reference") form = { ...form, declaredValue: valuation.valueUsd };
+
+    const attach = (plan: Plan): Plan => {
+      const extra = [...assumptions];
+      const v = valuation;
+      if (v && series && seriesForHs(plan.customs.hsCode)?.id !== series.id) {
+        extra.push(`The reference price was matched on the search result HS ${guess?.code}, but the final HS is ${plan.customs.hsCode}: treat the value check as indicative.`);
+      }
+      const out: Plan = { ...plan };
+      if (v) {
+        out.valuation = v;
+        if (v.flag) {
+          out.compliance = {
+            verdict: "review_required",
+            flags: [...(plan.compliance?.flags ?? []), v.note],
+            dangerousGoods: plan.compliance?.dangerousGoods ?? null,
+            disclaimer: plan.compliance?.disclaimer ?? "Indicative screen. Not legal advice.",
+          };
+        }
+      }
+      if (extra.length) out.assumptions = extra;
+      return out;
+    };
+
     let note: string | null = null;
     if (!apiKey) note = "AI not configured";
     else if (!allowAiRun()) note = "Demo AI quota reached for this hour";
     else {
       try {
-        const r = await runAgentLoop(data, (req) => callModelJSON(apiKey, req), { sea });
-        if (r.ok) return { plan: r.plan, source: "ai", note: null, error: null, trace: r.trace };
+        const r = await runAgentLoop(form, (req) => callModelJSON(apiKey, req), { sea });
+        if (r.ok) return { plan: attach(r.plan), source: "ai", note: null, error: null, trace: r.trace };
         note = r.error;
       } catch (e) {
         note = e instanceof Error ? e.message : "AI unavailable";
       }
     }
-    const p = runToolPipeline(data, { sea });
-    if (p.ok) return { plan: p.plan, source: "tools", note: `${note} — ran the tool pipeline without AI`, error: null, trace: p.trace };
+    const p = runToolPipeline(form, { sea });
+    if (p.ok) return { plan: attach(p.plan), source: "tools", note: `${note} — ran the tool pipeline without AI`, error: null, trace: p.trace };
     return { plan: null, source: "tools", note, error: p.error, trace: p.trace };
   });
 

@@ -1,5 +1,6 @@
 import { classifyHS, type CargoForm } from "./dhow-data";
 import type { ComplianceSummary, TraceEvent } from "./agent/types";
+import type { Valuation } from "./dhow-reference";
 
 export type Region = "AF" | "ME" | "EU" | "AS" | "AM";
 export type GeoPoint = { name: string; lat: number; lng: number; role: "origin" | "hub" | "destination" };
@@ -28,6 +29,10 @@ export type Plan = {
   /** Real tool calls made by the agent (present when the plan came from the tool pipeline or the AI loop). */
   trace?: TraceEvent[];
   compliance?: ComplianceSummary;
+  /** How the cargo value was established (entered by the user, or estimated from a sourced reference price) and how it compares with the market benchmark. */
+  valuation?: Valuation;
+  /** Assumptions made because an input was left empty. */
+  assumptions?: string[];
 };
 export type PlanSource = "ai" | "tools" | "simulated" | "preset";
 
