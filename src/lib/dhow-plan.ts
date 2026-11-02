@@ -128,7 +128,23 @@ export type ResolvedCity = City & { name: string };
 /** Distance-based route model shared by the local simulator and the agent's `estimate_routes` tool. These are model estimates, not carrier quotes. */
 export function routeModel(f: CargoForm, o: ResolvedCity, d: ResolvedCity, hubOverride?: ResolvedCity) {
   const hubKey = d.region === "ME" || o.region === "ME" ? "jebel ali" : o.region === "AM" || d.region === "AM" ? "rotterdam" : "jebel ali";
-  const hub: ResolvedCity = hubOverride ?? { ...GEO[hubKey]!, name: hubKey === "jebel ali" ? "Jebel Ali" : "Rotterdam" };
+  let hub: ResolvedCity = hubOverride ?? { ...GEO[hubKey]!, name: hubKey === "jebel ali" ? "Jebel Ali" : "Rotterdam" };
+  // Detour guard: on a short leg between two African ports, a hub that adds more than 25% to the direct distance
+  // (for example a port beyond the destination) is replaced by the African port that adds the least.
+  let hubNote: string | null = null;
+  const direct = distanceKm(o, d);
+  const via = (h: { lat: number; lng: number }) => distanceKm(o, h) + distanceKm(h, d);
+  if (o.region === "AF" && d.region === "AF" && direct < 2500 && via(hub) > direct * 1.25) {
+    let best: ResolvedCity | null = null;
+    for (const [k, c] of Object.entries(GEO)) {
+      if (c.region !== "AF" || c.code === o.code || c.code === d.code || k === "johannesburg" || k === "lomé") continue;
+      if (!best || via(c) < via(best)) best = { ...c, name: k.replace(/\b\w/g, (ch) => ch.toUpperCase()) };
+    }
+    if (best && via(best) < via(hub)) {
+      hubNote = `Hub changed from ${hub.name} to ${best.name}: ${hub.name} would add ${Math.round((via(hub) / direct - 1) * 100)}% to the direct distance, ${best.name} adds ${Math.round((via(best) / direct - 1) * 100)}%.`;
+      hub = best;
+    }
+  }
   const km = distanceKm(o, hub) + distanceKm(hub, d);
   const k = Math.max(0.5, km / 9000);
   const teu = Math.max(1, Math.ceil(f.volume / 33));
@@ -138,7 +154,7 @@ export function routeModel(f: CargoForm, o: ResolvedCity, d: ResolvedCity, hubOv
     { key: "B", name: "Cost-Effective — Ocean FCL", via: `Direct ocean / ${hub.name}`, days: Math.round(22 * k), cost: Math.round(teu * 2300 * k), co2: +(f.weight * 0.1 * k).toFixed(1), reliability: 78 },
     { key: "C", name: "Dhow AI Optimized Multimodal", via: `${hub.name} transshipment → priority feeder`, days: Math.round(15 * k), cost: Math.round(teu * 2300 * k * 1.14), co2: +(f.weight * 0.12 * k).toFixed(1), reliability: 94 },
   ];
-  return { hub, km, teu, options };
+  return { hub, km, teu, options, hubNote };
 }
 
 /** Overrides produced by the agent's tools; when present they replace the built-in guesses. */
