@@ -289,8 +289,12 @@ export function chokepoints(o: ResolvedCity, d: ResolvedCity, hub: ResolvedCity)
   if (southEastAsia && asia) out.push("Strait of Malacca / Singapore (typical for East Asia to the Gulf)");
   if (hub.country === "UAE" && hub.code !== "AEKLF" && hub.code !== "AEFJR") out.push("Strait of Hormuz (Jebel Ali and Dubai ports are inside the Gulf)");
   const redSeaCountries = ["Benin", "Nigeria", "Ghana", "Togo", "Côte d'Ivoire", "Senegal", "Cameroon", "Morocco", "Egypt"];
-  const viaSuezOrCape = (c: ResolvedCity) => c.region === "EU" || c.region === "AM" || redSeaCountries.includes(c.country);
-  if (viaSuezOrCape(o) || viaSuezOrCape(d)) out.push("Red Sea / Bab-el-Mandeb and Suez, or the longer Cape of Good Hope detour");
+  // Suez / Cape exposure only when the cargo crosses between the Asia-Gulf side and the Europe / Americas / West Africa side.
+  // A shipment between two points on the same side (for example Douala to Cotonou) never goes near the Red Sea.
+  const eastSide = (c: ResolvedCity) => c.region === "AS" || c.region === "ME";
+  const westSide = (c: ResolvedCity) => c.region === "EU" || c.region === "AM" || redSeaCountries.includes(c.country);
+  const crossesSuezOrCape = [o, d, hub].some(eastSide) && [o, d].some(westSide);
+  if (crossesSuezOrCape) out.push("Red Sea / Bab-el-Mandeb and Suez, or the longer Cape of Good Hope detour");
   return out;
 }
 

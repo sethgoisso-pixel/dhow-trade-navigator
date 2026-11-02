@@ -147,6 +147,18 @@ describe("live sea state", () => {
   });
 });
 
+describe("chokepoint exposure", () => {
+  const cargo = { weight: 20, volume: 40, declaredValue: 20000, cargoType: "bananas" };
+  it("does not flag the Red Sea for a West Africa coastal leg via a West African hub", () => {
+    const r = estimateRoutes({ origin: "Douala, Cameroon", destination: "Cotonou, BJ", ...cargo } as never, "Lom\u00e9");
+    expect(r.exposure).toEqual([]);
+  });
+  it("still flags Suez or Cape when Asia is shipped to Europe or West Africa", () => {
+    const r = estimateRoutes({ origin: "Shenzhen, China", destination: "Lagos, Nigeria", ...cargo } as never);
+    expect(r.exposure.some((x: string) => x.includes("Red Sea"))).toBe(true);
+  });
+});
+
 describe("sourced reference prices", () => {
   const sample = `Title:               Global price of Bananas
 Series ID:           PBANSOPUSDM
