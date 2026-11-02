@@ -42,8 +42,8 @@ export function CargoFormPanel() {
           }
           className="inline-flex items-center gap-1.5 rounded-lg border border-border/70 bg-card px-2.5 py-1 text-xs font-medium transition hover:border-gold hover:text-gold-2 cursor-pointer"
         >
-          <span>☀️</span>
-          <span>Shenzhen → Rotterdam (Solar Modules · $1.4M)</span>
+          <span>{"\u2600\uFE0F"}</span>
+          <span>Shenzhen {"\u2192"} Rotterdam (Solar Modules {"\u00B7"} $1.4M)</span>
         </button>
         <button
           type="button"
@@ -52,7 +52,7 @@ export function CargoFormPanel() {
             setForm({
               origin: "Dubai, UAE",
               destination: "Mombasa, Kenya",
-              cargoType: "Pharmaceutical Cold Chain (Vaccines 2-8°C)",
+              cargoType: "Pharmaceutical Cold Chain (Vaccines 2-8\u00B0C)",
               weight: 18,
               volume: 45,
               declaredValue: 650000,
@@ -60,8 +60,8 @@ export function CargoFormPanel() {
           }
           className="inline-flex items-center gap-1.5 rounded-lg border border-border/70 bg-card px-2.5 py-1 text-xs font-medium transition hover:border-gold hover:text-gold-2 cursor-pointer"
         >
-          <span>❄️</span>
-          <span>Dubai → Mombasa (Medical Cold-Chain · $650k)</span>
+          <span>{"\u2744\uFE0F"}</span>
+          <span>Dubai {"\u2192"} Mombasa (Medical Cold-Chain {"\u00B7"} $650k)</span>
         </button>
       </div>
 
@@ -71,10 +71,10 @@ export function CargoFormPanel() {
       {text("destination", "Destination (city, country)", "dhow-ports", "e.g. Frankfurt, Germany")}
       {text("cargoType", "Cargo description", "dhow-cargo", "e.g. 50t Green Coffee Beans")}
       {num("weight", "Weight (metric tons)", "0.1")}
-      {num("volume", "Volume (CBM)")}
-      {num("declaredValue", "Declared value (USD)", "100")}
+      {num("volume", "Volume (CBM), optional")}
+      {num("declaredValue", "Declared value (USD), optional for common commodities", "100")}
       <Button type="submit" disabled={running} className="shadow-gold sm:col-span-2 lg:col-span-3">
-        <Sparkles /> {thinking ? "AI navigator planning…" : running ? "Agent reasoning…" : "Run Dhow AI Navigator"}
+        <Sparkles /> {thinking ? "AI navigator planning\u2026" : running ? "Agent reasoning\u2026" : "Run Dhow AI Navigator"}
       </Button>
     </form>
   );

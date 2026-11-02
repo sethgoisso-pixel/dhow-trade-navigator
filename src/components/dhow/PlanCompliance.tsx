@@ -27,10 +27,33 @@ function TracePanel({ trace }: { trace: NonNullable<Plan["trace"]> }) {
   );
 }
 
+function ValuationPanel({ plan }: { plan: Plan }) {
+  const v = plan.valuation;
+  const notes = plan.assumptions ?? [];
+  if (!v && notes.length === 0) return null;
+  const tone = v?.flag ? "border-amber-500/50 bg-amber-500/5" : "border-border bg-card/60";
+  return (
+    <div className={`rounded-xl border p-3 text-xs ${tone}`}>
+      <div className="mb-1 flex items-center gap-1.5 font-medium text-foreground">
+        {v?.flag ? <AlertTriangle className="size-4 text-amber-500" /> : <ShieldCheck className="size-4 text-emerald-500" />}
+        {v ? (v.basis === "reference" ? "Value estimated from a sourced benchmark" : "Value check against a sourced benchmark") : "Assumptions"}
+      </div>
+      {v && <p className="leading-relaxed text-muted-foreground">{v.note}</p>}
+      {v?.reference && (
+        <p className="mt-1 text-[10px] text-muted-foreground">
+          Source: <a className="underline" href={v.reference.url} target="_blank" rel="noreferrer">{v.reference.title}</a> · IMF Primary Commodity Prices via FRED · ${v.reference.usdPerTonne.toLocaleString("en-US")}/t · {v.reference.asOf}. A benchmark, not a transaction value.
+        </p>
+      )}
+      {notes.map((n, i) => <p key={i} className="mt-1 text-muted-foreground">• {n}</p>)}
+    </div>
+  );
+}
+
 export function PlanCompliance({ plan, destination }: { plan: Plan; destination: string }) {
   const { customs, compliance, trace } = plan;
   return (
     <div className="space-y-4">
+      <ValuationPanel plan={plan} />
       <div className="grid gap-4 lg:grid-cols-2">
         <Panel title={`Duty & Tariff Estimate — ${destination}`} action={<AIBadge>HS {customs.hsCode}</AIBadge>}>
           <p className="mb-3 text-xs text-muted-foreground">

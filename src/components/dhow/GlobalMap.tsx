@@ -1,9 +1,10 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import * as maplibregl from "maplibre-gl";
 import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
 import "maplibre-gl/dist/maplibre-gl.css";
 import type { GeoPoint } from "@/lib/dhow-plan";
 import { geodesicPath } from "@/lib/dhow-geo";
+import { fetchMaritimeWeather, type ChokepointWeather } from "@/lib/dhow-weather";
 
 maplibregl.setWorkerUrl(workerUrl);
 
@@ -11,6 +12,8 @@ export default function GlobalMap({ waypoints }: { waypoints: GeoPoint[] }) {
   const el = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
   const markers = useRef<maplibregl.Marker[]>([]);
+  const wxMarkers = useRef<maplibregl.Marker[]>([]);
+  const [wx, setWx] = useState<ChokepointWeather[]>([]);
   const latest = useRef(waypoints);
   latest.current = waypoints;
 
@@ -69,5 +72,41 @@ export default function GlobalMap({ waypoints }: { waypoints: GeoPoint[] }) {
 
   useEffect(() => { draw(); }, [waypoints]);
 
-  return <div ref={el} className="h-72 w-full sm:h-96" />;
+  // Real sea state (Open-Meteo Marine) at the three chokepoints, drawn on the map. Grey = fallback value, not a measurement.
+  useEffect(() => { fetchMaritimeWeather().then(setWx).catch(() => {}); }, []);
+  useEffect(() => {
+    const m = map.current;
+    if (!m) return;
+    wxMarkers.current.forEach((mk) => mk.remove());
+    wxMarkers.current = wx.map((cp) => {
+      const node = document.createElement("div");
+      const color = !cp.live ? "#94a3b8" : cp.status === "Calm" ? "#10b981" : cp.status === "Moderate" ? "#f59e0b" : "#f43f5e";
+      node.style.cssText = `width:16px;height:16px;border-radius:9999px;background:${color};border:2px solid #fff;box-shadow:0 0 0 3px ${color}55;cursor:pointer`;
+      node.title = `${cp.name}: ${cp.waveHeight} m`;
+      const text = cp.live
+        ? `${cp.name} · swell ${cp.waveHeight} m (${cp.status}) · measured ${cp.fetchedAt.slice(11, 16)} UTC · Open-Meteo Marine`
+        : `${cp.name} · fallback value, API unreachable`;
+      return new maplibregl.Marker({ element: node }).setLngLat([cp.lon, cp.lat]).setPopup(new maplibregl.Popup({ offset: 12, closeButton: false }).setText(text)).addTo(m);
+    });
+    return () => { wxMarkers.current.forEach((mk) => mk.remove()); wxMarkers.current = []; };
+  }, [wx]);
+
+  const allLive = wx.length > 0 && wx.every((cp) => cp.live);
+  return (
+    <div className="relative">
+      <div ref={el} className="h-72 w-full sm:h-96" />
+      {wx.length > 0 && (
+        <div className="pointer-events-none absolute bottom-2 left-2 max-w-[80%] rounded-md bg-background/85 px-2 py-1 text-[10px] leading-snug text-foreground shadow backdrop-blur">
+          <div className="font-medium">{allLive ? "Sea state at chokepoints" : "Sea state (fallback values)"}</div>
+          <div className="flex flex-wrap items-center gap-x-2">
+            <span><span className="mr-1 inline-block size-2 rounded-full bg-emerald-500" />&lt; 1 m</span>
+            <span><span className="mr-1 inline-block size-2 rounded-full bg-amber-500" />1–2.2 m</span>
+            <span><span className="mr-1 inline-block size-2 rounded-full bg-rose-500" />&gt; 2.2 m</span>
+            {!allLive && <span><span className="mr-1 inline-block size-2 rounded-full bg-slate-400" />no live data</span>}
+          </div>
+          <div className="text-muted-foreground">Dashed line: great-circle estimate, not a shipping lane. Source: Open-Meteo Marine.</div>
+        </div>
+      )}
+    </div>
+  );
 }
