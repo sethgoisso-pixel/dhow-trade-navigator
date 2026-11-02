@@ -66,7 +66,7 @@ export function runTool(name: ToolName, a: ToolArgs, ctx: Ctx): { ok: boolean; s
         state.routes = r;
         state.hub = r.hub;
         const c = r.options.find((o) => o.key === "C");
-        return { ok: true, summary: `Hub ${r.hub.name}, ${r.distanceKm.toLocaleString("en-US")} km; option C ${c?.days}d, ${usd(c?.cost ?? 0)}; ${r.exposure.length} chokepoint(s)`, result: { hub: r.hub.name, distanceKm: r.distanceKm, options: r.options, exposure: r.exposure } };
+        return { ok: true, summary: `Hub ${r.hub.name}, ${r.distanceKm.toLocaleString("en-US")} km; option C ${c?.days}d, ${usd(c?.cost ?? 0)}; ${r.exposure.length} chokepoint(s)${r.hubNote ? `. ${r.hubNote}` : ""}`, result: { hub: r.hub.name, distanceKm: r.distanceKm, options: r.options, exposure: r.exposure } };
       }
       case "estimate_landed_cost": {
         const dest = lookupCity(form.destination);

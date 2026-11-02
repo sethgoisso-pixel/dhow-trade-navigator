@@ -159,6 +159,25 @@ describe("chokepoint exposure", () => {
   });
 });
 
+describe("hub detour guard", () => {
+  const cargo = { weight: 20, volume: 40, declaredValue: 20000, cargoType: "bananas" };
+  it("replaces a hub beyond the destination on a short African leg", () => {
+    const r = estimateRoutes({ origin: "Douala, Cameroon", destination: "Cotonou, BJ", ...cargo } as never, "Tema");
+    if (!r.ok) throw new Error("unexpected");
+    expect(r.hub.name).toBe("Lagos");
+    expect(r.hubNote).toContain("Tema");
+    expect(r.distanceKm).toBeLessThan(1000);
+  });
+  it("keeps a sensible hub and long-haul defaults untouched", () => {
+    const a = estimateRoutes({ origin: "Douala, Cameroon", destination: "Cotonou, BJ", ...cargo } as never, "Lagos");
+    if (!a.ok) throw new Error("unexpected");
+    expect(a.hubNote).toBeNull();
+    const b = estimateRoutes({ origin: "Shenzhen, China", destination: "Lagos, Nigeria", ...cargo } as never);
+    if (!b.ok) throw new Error("unexpected");
+    expect(b.hub.name).toBe("Jebel Ali");
+  });
+});
+
 describe("sourced reference prices", () => {
   const sample = `Title:               Global price of Bananas
 Series ID:           PBANSOPUSDM

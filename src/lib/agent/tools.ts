@@ -329,5 +329,5 @@ export function estimateRoutes(f: CargoForm, hubName?: string, sea?: SeaState) {
       ? `Exposure: ${exposure.join("; ")}.${waveText} Congestion and customs indices are heuristic scores from route geography, not live port data.`
       : "No major chokepoint on the modelled path. Indices are heuristic scores from route geography, not live port data.") + (useLive ? "" : " Weather index is a heuristic (no live sea data used)."),
   };
-  return { ok: true as const, hub: m.hub, distanceKm: Math.round(m.km), options: m.options as PlanOption[], exposure, risk };
+  return { ok: true as const, hub: m.hub, hubNote: m.hubNote, distanceKm: Math.round(m.km), options: m.options as PlanOption[], exposure, risk };
 }
