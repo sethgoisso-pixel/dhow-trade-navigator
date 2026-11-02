@@ -151,10 +151,12 @@ describe("chokepoint exposure", () => {
   const cargo = { weight: 20, volume: 40, declaredValue: 20000, cargoType: "bananas" };
   it("does not flag the Red Sea for a West Africa coastal leg via a West African hub", () => {
     const r = estimateRoutes({ origin: "Douala, Cameroon", destination: "Cotonou, BJ", ...cargo } as never, "Lom\u00e9");
+    if (!r.ok) throw new Error("unexpected");
     expect(r.exposure).toEqual([]);
   });
   it("still flags Suez or Cape when Asia is shipped to Europe or West Africa", () => {
     const r = estimateRoutes({ origin: "Shenzhen, China", destination: "Lagos, Nigeria", ...cargo } as never);
+    if (!r.ok) throw new Error("unexpected");
     expect(r.exposure.some((x: string) => x.includes("Red Sea"))).toBe(true);
   });
 });
@@ -228,6 +230,19 @@ describe("natural product descriptions", () => {
     expect(searchHS("wheat")[0]?.code).toBe("1001.99");
     expect(searchHS("wheat flour")[0]?.code.startsWith("1101")).toBe(true);
     expect(searchHS("cotton")[0]?.code).toBe("5201.00");
+  });
+});
+
+describe("typo tolerance", () => {
+  it("still finds the product when a word is misspelled", () => {
+    expect(searchHS("20t banananas", 1)[0]?.code).toBe("0803.90");
+    expect(searchHS("bananna", 1)[0]?.code).toBe("0803.90");
+    expect(searchHS("green cofee beans", 1)[0]?.code).toBe("0901.11");
+    expect(searchHS("raw cottton", 1)[0]?.code).toBe("5201.00");
+  });
+  it("does not change correctly spelled queries", () => {
+    expect(searchHS("fresh bananas", 1)[0]?.code).toBe("0803.90");
+    expect(searchHS("qwxzvkj", 1)).toEqual([]);
   });
 });
 

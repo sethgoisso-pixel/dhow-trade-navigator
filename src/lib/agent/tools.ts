@@ -126,6 +126,39 @@ export const hsDescription = (c: string) => {
  * `score` is the share of the query's (idf-weighted) terms found in the subheading text, 0–1.
  * It measures lexical match, not the probability that the code is legally correct.
  */
+/** Edit distance between two words, or max + 1 as soon as it exceeds max. */
+function editDistance(a: string, b: string, max: number): number {
+  if (Math.abs(a.length - b.length) > max) return max + 1;
+  let prev = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= a.length; i++) {
+    const cur = [i];
+    let rowMin = i;
+    for (let j = 1; j <= b.length; j++) {
+      const v = Math.min(prev[j]! + 1, cur[j - 1]! + 1, prev[j - 1]! + (a[i - 1] === b[j - 1] ? 0 : 1));
+      cur.push(v);
+      if (v < rowMin) rowMin = v;
+    }
+    if (rowMin > max) return max + 1;
+    prev = cur;
+  }
+  return prev[b.length]!;
+}
+
+/** Typo tolerance: a query word that is not in the HS vocabulary is replaced by its nearest vocabulary word (1 edit up to 7 letters, 2 edits beyond). */
+function nearestWord(t: string, vocab: Map<string, number>): string | null {
+  if (t.length < 5 || /\d/.test(t)) return null;
+  const max = t.length <= 7 ? 1 : 2;
+  let best: string | null = null;
+  let bestD = max + 1;
+  let bestIdf = Infinity;
+  for (const [v, idfV] of vocab) {
+    const d = editDistance(t, v, max);
+    // Closest first; among equals, the most common word (lowest idf).
+    if (d < bestD || (d === bestD && d <= max && idfV < bestIdf)) { best = v; bestD = d; bestIdf = idfV; }
+  }
+  return bestD <= max ? best : null;
+}
+
 export function searchHS(query: string, k = 5): HsHit[] {
   const { docs: ds, idf: w } = index();
   const direct = query.match(/\b\d{4}\.?\d{2}\b/);
@@ -136,14 +169,19 @@ export function searchHS(query: string, k = 5): HsHit[] {
     if (row) out.push({ code: formatHs(row.code), description: row.description, score: 1 });
   }
   const q = new Set<string>();
+  const fixed: string[] = [];
   for (const t of tokens(query, true)) {
-    q.add(t);
-    for (const s of SYN[t] ?? []) q.add(stem(s));
+    const known = w.has(t) || SYN[t] !== undefined;
+    const repl = known ? null : nearestWord(t, w);
+    if (repl) fixed.push(repl);
+    const use = repl ?? t;
+    q.add(use);
+    for (const s of SYN[use] ?? []) q.add(stem(s));
   }
   if (q.size === 0) return out.slice(0, k);
   let total = 0;
   for (const t of q) total += w.get(t) ?? 1;
-  const lower = query.toLowerCase();
+  const lower = [query.toLowerCase(), ...fixed].join(" ");
   const prefer = PROCESSED.test(lower) ? [] : ALIASES.filter((a) => a.re.test(lower)).flatMap((a) => a.prefixes);
   const rank = new Map<string, number>();
   const scored: HsHit[] = [];
