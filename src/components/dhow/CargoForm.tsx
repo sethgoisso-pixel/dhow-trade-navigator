@@ -16,7 +16,14 @@ export function CargoFormPanel() {
   const num = (k: "weight" | "volume" | "declaredValue", label: string, step = "1") => (
     <div className="space-y-1.5">
       <Label className="text-xs">{label}</Label>
-      <Input type="number" min={0} step={step} value={form[k]} onChange={(e) => setForm({ [k]: +e.target.value || 0 })} />
+      <Input
+        type="number"
+        min={0}
+        step={step}
+        value={form[k] === 0 ? "" : form[k]}
+        onFocus={(e) => e.target.select()}
+        onChange={(e) => setForm({ [k]: e.target.value === "" ? 0 : +e.target.value })}
+      />
     </div>
   );
 
