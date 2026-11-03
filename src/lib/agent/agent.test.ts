@@ -100,6 +100,26 @@ describe("agent loop (model chooses the tools)", () => {
     expect(r.trace.some((t) => t.kind === "check" && t.summary.includes("exists in the HS-2022"))).toBe(true);
     expect(m.seen[1]).toContain("observation"); // the model was shown the first observation
   });
+  it("drops a model briefing that invents a date or a number no tool produced", async () => {
+    const steps = (briefing: string) => scripted([
+      { action: "search_hs_code", query: "photovoltaic modules" },
+      { action: "estimate_routes", hub: "Jebel Ali" },
+      { action: "estimate_landed_cost", hs_code: "8541.43", duty_rate_percent: 5 },
+      { action: "finish", briefing },
+    ]).call;
+    const a = await runAgentLoop(solar.form, steps("Book before the December 5 deadline."));
+    const b = await runAgentLoop(solar.form, steps("Transit takes 99 days."));
+    const c = await runAgentLoop(solar.form, steps("Route via Jebel Ali is the safest."));
+    for (const r of [a, b]) {
+      expect(r.ok).toBe(true);
+      if (r.ok) {
+        expect(r.plan.risks.briefing).not.toContain("deadline");
+        expect(r.plan.risks.briefing).not.toContain("99 days");
+        expect(r.trace.some((t) => t.summary.startsWith("Model briefing dropped"))).toBe(true);
+      }
+    }
+    if (c.ok) expect(c.plan.risks.briefing).toContain("Route via Jebel Ali");
+  });
   it("rejects an invented HS code and uses a real one", async () => {
     const m = scripted([
       { action: "search_hs_code", query: "photovoltaic modules" },

@@ -97,6 +97,19 @@ export function traceLine(e: TraceEvent): string {
   return `${e.tool}(${argsLine((e.args ?? {}) as ToolArgs)}) → ${e.summary}`;
 }
 
+/**
+ * Verifier for the model's free-text briefing: it may not state dates, deadlines or carrier names, nor any number
+ * that no tool produced (or that is not in the request). A briefing that fails is dropped and the tool-generated
+ * briefing is used alone.
+ */
+const UNGROUNDED = /\b(january|february|march|april|june|july|august|september|october|november|december)\b|\bmay\s+\d|\bdeadline|\b(19|20)\d{2}\b|maersk|\bmsc\b|cma cgm|hapag|skycargo/i;
+const numbersIn = (s: string) => (s.match(/\d[\d,]*(?:\.\d+)?/g) ?? []).map((n) => n.replace(/,/g, "").replace(/\.0+$/, ""));
+export function groundedBriefing(text: string, trace: TraceEvent[], form: CargoForm): string | null {
+  if (UNGROUNDED.test(text)) return null;
+  const known = new Set(numbersIn([...trace.map((t) => t.summary), String(form.weight), String(form.volume), String(form.declaredValue)].join(" ")));
+  return numbersIn(text).every((n) => known.has(n)) ? text : null;
+}
+
 /** Assembles the final plan from what the tools established. Returns null if the essentials are missing. */
 function assemble(form: CargoForm, state: State, trace: TraceEvent[], briefing: string | null, sea?: SeaState): Plan | null {
   const dest = lookupCity(form.destination);
@@ -183,7 +196,7 @@ Rules:
 - Never invent HS codes, prices, distances or tariff numbers. Numbers come from tool observations only.
 - Call search_hs_code, estimate_routes and estimate_landed_cost at least once before finishing. Use at most 6 tool calls.
 - If a tool reports an unknown port or a failure, adapt (for example try a different query) or finish and say what is missing.
-- When you finish (action "finish"), write "briefing": 1 or 2 sentences for the merchant, grounded only in the observations (route exposure, compliance flags, duty assumption). Do not repeat raw numbers you were not given.
+- When you finish (action "finish"), write "briefing": 1 or 2 sentences for the merchant, grounded only in the observations (route exposure, compliance flags, duty assumption). Do not repeat raw numbers you were not given. Never mention dates, deadlines, carrier names or any fact that is not in the observations.
 - "thought" is one short sentence about why you take this step.`;
 
 export type ModelJSON = (req: { instructions: string; input: string; schemaName: string; schema: unknown }) => Promise<unknown>;
@@ -255,7 +268,9 @@ export async function runAgentLoop(form: CargoForm, callModel: ModelJSON, opts: 
   push({ kind: "check", summary: known ? `HS ${ctx.state.hs.code} exists in the HS-2022 nomenclature (5,613 subheadings)` : `HS ${ctx.state.hs.code} is not in HS-2022`, ms: 1, ok: known });
   if (ctx.state.duty) push({ kind: "check", summary: ctx.state.duty.note, ms: 1, ok: !ctx.state.duty.snapped });
   if (!known) return { ok: false, error: "The agent proposed an HS code that does not exist.", trace };
-  const plan = assemble(form, ctx.state, trace, briefing, opts.sea);
+  const grounded = briefing ? groundedBriefing(briefing, trace, form) : null;
+  if (briefing && !grounded) push({ kind: "check", summary: "Model briefing dropped by the verifier: it contained a date, a carrier name or a number that no tool produced.", ms: 1, ok: false });
+  const plan = assemble(form, ctx.state, trace, grounded, opts.sea);
   if (!plan) {
     const r = estimateRoutes(form, undefined, opts.sea);
     return { ok: false, error: r.ok ? "Could not assemble a plan from the tool results." : `Dhow does not know ${r.unknown.join(" and ")} yet. Try a major port or city.`, trace };
