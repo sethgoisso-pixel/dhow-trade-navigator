@@ -3,7 +3,7 @@ export type TraceEvent = {
   step: number;
   kind: "thought" | "tool" | "check";
   tool?: string;
-  args?: Record<string, unknown>;
+  args?: Record<string, string | number | boolean | null>;
   summary: string;
   ms: number;
   ok: boolean;
