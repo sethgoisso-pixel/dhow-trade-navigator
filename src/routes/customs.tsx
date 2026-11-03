@@ -91,8 +91,9 @@ useEffect(() => {
               <Input
                 type="number"
                 min="100"
-                value={value}
-                onChange={(e) => setValue(+e.target.value || 0)}
+                value={value === 0 ? "" : value}
+                onFocus={(e) => e.target.select()}
+                onChange={(e) => setValue(e.target.value === "" ? 0 : +e.target.value)}
               />
             </div>
           </div>

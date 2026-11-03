@@ -128,7 +128,7 @@ export function runToolPipeline(form: CargoForm, opts: { hsQuery?: string; emit?
   const step = (name: ToolName, a: ToolArgs) => {
     const t0 = Date.now();
     const r = runTool(name, a, ctx);
-    const ev: TraceEvent = { step: ++n, kind: "tool", tool: name, args: a as Record<string, unknown>, summary: r.summary, ms: Math.max(1, Date.now() - t0), ok: r.ok };
+    const ev: TraceEvent = { step: ++n, kind: "tool", tool: name, args: a as Record<string, string | number | boolean | null>, summary: r.summary, ms: Math.max(1, Date.now() - t0), ok: r.ok };
     trace.push(ev);
     opts.emit?.(ev);
     return r;
@@ -232,7 +232,7 @@ export async function runAgentLoop(form: CargoForm, callModel: ModelJSON, opts: 
     };
     const t1 = Date.now();
     const r = runTool(raw.action, args, ctx);
-    push({ kind: "tool", tool: raw.action, args: args as Record<string, unknown>, summary: r.summary, ms: Math.max(1, Date.now() - t1), ok: r.ok });
+    push({ kind: "tool", tool: raw.action, args: args as Record<string, string | number | boolean | null>, summary: r.summary, ms: Math.max(1, Date.now() - t1), ok: r.ok });
     transcript.push(`${transcript.length + 1}. thought: ${raw.thought}\n   call: ${raw.action}(${argsLine(args)})\n   observation (${r.ok ? "ok" : "failed"}): ${clip(JSON.stringify(r.result), 1400)}`);
   }
 
@@ -241,7 +241,7 @@ export async function runAgentLoop(form: CargoForm, callModel: ModelJSON, opts: 
     if (done) return;
     const t0 = Date.now();
     const r = runTool(name, a, ctx);
-    push({ kind: "tool", tool: name, args: a as Record<string, unknown>, summary: `(run by the verifier) ${r.summary}`, ms: Math.max(1, Date.now() - t0), ok: r.ok });
+    push({ kind: "tool", tool: name, args: a as Record<string, string | number | boolean | null>, summary: `(run by the verifier) ${r.summary}`, ms: Math.max(1, Date.now() - t0), ok: r.ok });
   };
   ensure("search_hs_code", { query: form.cargoType }, !!ctx.state.hs);
   ensure("estimate_routes", {}, !!ctx.state.routes);
