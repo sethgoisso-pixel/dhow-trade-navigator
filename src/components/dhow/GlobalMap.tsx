@@ -3,7 +3,7 @@ import * as maplibregl from "maplibre-gl";
 import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
 import "maplibre-gl/dist/maplibre-gl.css";
 import type { GeoPoint } from "@/lib/dhow-plan";
-import { geodesicPath } from "@/lib/dhow-geo";
+import { seaRoute } from "@/lib/dhow-sealanes";
 import { fetchMaritimeWeather, type ChokepointWeather } from "@/lib/dhow-weather";
 
 maplibregl.setWorkerUrl(workerUrl);
@@ -20,8 +20,13 @@ export default function GlobalMap({ waypoints }: { waypoints: GeoPoint[] }) {
   const draw = () => {
     const m = map.current;
     if (!m || !m.isStyleLoaded()) return;
+    // Blue water on the light style, deep navy on the dark one (layer ids of the OpenFreeMap styles; ignored if absent).
+    try {
+      const dark = document.documentElement.classList.contains("dark");
+      if (m.getLayer("water")) m.setPaintProperty("water", "fill-color", dark ? "#0c2a47" : "#bcd9ee");
+    } catch { /* style without a water layer */ }
     const pts = latest.current;
-    const coords = geodesicPath(pts);
+    const coords = seaRoute(pts);
     const data = { type: "Feature", properties: {}, geometry: { type: "LineString" as const, coordinates: coords } } as const;
     const src = m.getSource("route") as maplibregl.GeoJSONSource | undefined;
     if (src) src.setData(data);
@@ -38,7 +43,7 @@ export default function GlobalMap({ waypoints }: { waypoints: GeoPoint[] }) {
       const lng = coords.find((c) => Math.abs(c[1] - p.lat) < 1e-6)?.[0] ?? p.lng;
       return new maplibregl.Marker({ element: node })
         .setLngLat([lng, p.lat])
-        .setPopup(new maplibregl.Popup({ offset: 14, closeButton: false }).setText(`${p.role === "hub" ? "Transshipment hub" : p.role === "origin" ? "Origin" : "Destination"} · ${p.name}`))
+        .setPopup(new maplibregl.Popup({ offset: 14, closeButton: false }).setText(`${p.role === "hub" ? "Transshipment hub" : p.role === "origin" ? "Origin" : "Destination"} \u00B7 ${p.name}`))
         .addTo(m);
     });
     const b = new maplibregl.LngLatBounds();
@@ -84,8 +89,8 @@ export default function GlobalMap({ waypoints }: { waypoints: GeoPoint[] }) {
       node.style.cssText = `width:16px;height:16px;border-radius:9999px;background:${color};border:2px solid #fff;box-shadow:0 0 0 3px ${color}55;cursor:pointer`;
       node.title = `${cp.name}: ${cp.waveHeight} m`;
       const text = cp.live
-        ? `${cp.name} · swell ${cp.waveHeight} m (${cp.status}) · measured ${cp.fetchedAt.slice(11, 16)} UTC · Open-Meteo Marine`
-        : `${cp.name} · fallback value, API unreachable`;
+        ? `${cp.name} \u00B7 swell ${cp.waveHeight} m (${cp.status}) \u00B7 measured ${cp.fetchedAt.slice(11, 16)} UTC \u00B7 Open-Meteo Marine`
+        : `${cp.name} \u00B7 fallback value, API unreachable`;
       return new maplibregl.Marker({ element: node }).setLngLat([cp.lon, cp.lat]).setPopup(new maplibregl.Popup({ offset: 12, closeButton: false }).setText(text)).addTo(m);
     });
     return () => { wxMarkers.current.forEach((mk) => mk.remove()); wxMarkers.current = []; };
@@ -100,11 +105,11 @@ export default function GlobalMap({ waypoints }: { waypoints: GeoPoint[] }) {
           <div className="font-medium">{allLive ? "Sea state at chokepoints" : "Sea state (fallback values)"}</div>
           <div className="flex flex-wrap items-center gap-x-2">
             <span><span className="mr-1 inline-block size-2 rounded-full bg-emerald-500" />&lt; 1 m</span>
-            <span><span className="mr-1 inline-block size-2 rounded-full bg-amber-500" />1–2.2 m</span>
+            <span><span className="mr-1 inline-block size-2 rounded-full bg-amber-500" />{"1\u20132.2 m"}</span>
             <span><span className="mr-1 inline-block size-2 rounded-full bg-rose-500" />&gt; 2.2 m</span>
             {!allLive && <span><span className="mr-1 inline-block size-2 rounded-full bg-slate-400" />no live data</span>}
           </div>
-          <div className="text-muted-foreground">Dashed line: great-circle estimate, not a shipping lane. Source: Open-Meteo Marine.</div>
+          <div className="text-muted-foreground">Dashed line: indicative sea lane through hand-placed waypoints, not a tracked vessel route. Source: Open-Meteo Marine.</div>
         </div>
       )}
     </div>
