@@ -17,7 +17,7 @@ export default function GlobalMap({ waypoints }: { waypoints: GeoPoint[] }) {
   const latest = useRef(waypoints);
   latest.current = waypoints;
 
-  const draw = () => {
+  const draw = (shouldFit = true) => {
     const m = map.current;
     if (!m || !m.isStyleLoaded()) return;
     // Blue water on the light style, deep navy on the dark one (layer ids of the OpenFreeMap styles; ignored if absent).
@@ -48,7 +48,7 @@ export default function GlobalMap({ waypoints }: { waypoints: GeoPoint[] }) {
     });
     const b = new maplibregl.LngLatBounds();
     coords.forEach((c) => b.extend(c));
-    m.fitBounds(b, { padding: 50, duration: 1200, maxZoom: 6 });
+    if (shouldFit) m.fitBounds(b, { padding: 50, duration: 1200, maxZoom: 6 });
   };
 
   useEffect(() => {
@@ -64,8 +64,8 @@ export default function GlobalMap({ waypoints }: { waypoints: GeoPoint[] }) {
       renderWorldCopies: true,
     });
     m.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
-    m.on("load", draw);
-    m.on("style.load", draw);
+    let firstStyle = true;
+    m.on("style.load", () => { draw(firstStyle); firstStyle = false; });
     map.current = m;
     const obs = new MutationObserver(() => {
       const next = styleFor();
@@ -75,7 +75,7 @@ export default function GlobalMap({ waypoints }: { waypoints: GeoPoint[] }) {
     return () => { obs.disconnect(); markers.current.forEach((mk) => mk.remove()); m.remove(); map.current = null; };
   }, []);
 
-  useEffect(() => { draw(); }, [waypoints]);
+  useEffect(() => { draw(true); }, [waypoints]);
 
   // Real sea state (Open-Meteo Marine) at the three chokepoints, drawn on the map. Grey = fallback value, not a measurement.
   useEffect(() => { fetchMaritimeWeather().then(setWx).catch(() => {}); }, []);
