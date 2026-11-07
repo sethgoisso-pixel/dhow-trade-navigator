@@ -16,25 +16,52 @@ export default function GlobalMap({ waypoints }: { waypoints: GeoPoint[] }) {
   const [wx, setWx] = useState<ChokepointWeather[]>([]);
   const latest = useRef(waypoints);
   latest.current = waypoints;
+  const hasFitted = useRef(false);
 
-  const draw = (shouldFit = true) => {
+  const draw = (shouldFit = false) => {
     const m = map.current;
     if (!m || !m.isStyleLoaded()) return;
-    // Blue water on the light style, deep navy on the dark one (layer ids of the OpenFreeMap styles; ignored if absent).
+
+    // Mers bleues nautiques : bleu azur en clair (#bcd9ee), bleu marine profond en sombre (#0c2a47)
     try {
-      const dark = document.documentElement.classList.contains("dark");
-      if (m.getLayer("water")) m.setPaintProperty("water", "fill-color", dark ? "#0c2a47" : "#bcd9ee");
-    } catch { /* style without a water layer */ }
+      const isDark = document.documentElement.classList.contains("dark");
+      const waterColor = isDark ? "#0c2a47" : "#bcd9ee";
+      if (m.getLayer("water")) {
+        m.setPaintProperty("water", "fill-color", waterColor);
+      }
+      if (m.getLayer("waterway")) {
+        m.setPaintProperty("waterway", "line-color", waterColor);
+      }
+    } catch { /* calques non encore montés */ }
+
     const pts = latest.current;
     const coords = seaRoute(pts);
-    const data = { type: "Feature", properties: {}, geometry: { type: "LineString" as const, coordinates: coords } } as const;
+    const data = {
+      type: "Feature",
+      properties: {},
+      geometry: { type: "LineString" as const, coordinates: coords },
+    } as const;
+
     const src = m.getSource("route") as maplibregl.GeoJSONSource | undefined;
-    if (src) src.setData(data);
-    else {
+    if (src) {
+      src.setData(data);
+    } else {
       m.addSource("route", { type: "geojson", data });
-      m.addLayer({ id: "route-glow", type: "line", source: "route", paint: { "line-color": "#D4AF37", "line-width": 8, "line-opacity": 0.18, "line-blur": 4 } });
-      m.addLayer({ id: "route-line", type: "line", source: "route", layout: { "line-cap": "round" }, paint: { "line-color": "#D4AF37", "line-width": 2.5, "line-dasharray": [2, 1.5] } });
+      m.addLayer({
+        id: "route-glow",
+        type: "line",
+        source: "route",
+        paint: { "line-color": "#D4AF37", "line-width": 8, "line-opacity": 0.18, "line-blur": 4 },
+      });
+      m.addLayer({
+        id: "route-line",
+        type: "line",
+        source: "route",
+        layout: { "line-cap": "round" },
+        paint: { "line-color": "#D4AF37", "line-width": 2.5, "line-dasharray": [2, 1.5] },
+      });
     }
+
     markers.current.forEach((mk) => mk.remove());
     markers.current = pts.map((p) => {
       const node = document.createElement("div");
@@ -43,18 +70,28 @@ export default function GlobalMap({ waypoints }: { waypoints: GeoPoint[] }) {
       const lng = coords.find((c) => Math.abs(c[1] - p.lat) < 1e-6)?.[0] ?? p.lng;
       return new maplibregl.Marker({ element: node })
         .setLngLat([lng, p.lat])
-        .setPopup(new maplibregl.Popup({ offset: 14, closeButton: false }).setText(`${p.role === "hub" ? "Transshipment hub" : p.role === "origin" ? "Origin" : "Destination"} \u00B7 ${p.name}`))
+        .setPopup(
+          new maplibregl.Popup({ offset: 14, closeButton: false }).setText(
+            `${p.role === "hub" ? "Transshipment hub" : p.role === "origin" ? "Origin" : "Destination"} · ${p.name}`
+          )
+        )
         .addTo(m);
     });
-    const b = new maplibregl.LngLatBounds();
-    coords.forEach((c) => b.extend(c));
-    if (shouldFit) m.fitBounds(b, { padding: 50, duration: 1200, maxZoom: 6 });
+
+    if (shouldFit && coords.length > 0) {
+      const b = new maplibregl.LngLatBounds();
+      coords.forEach((c) => b.extend(c));
+      m.fitBounds(b, { padding: 50, duration: 1200, maxZoom: 6 });
+      hasFitted.current = true;
+    }
   };
 
   useEffect(() => {
     if (!el.current) return;
-    const styleFor = () => `https://tiles.openfreemap.org/styles/${document.documentElement.classList.contains("dark") ? "dark" : "positron"}`;
+    const styleFor = () =>
+      `https://tiles.openfreemap.org/styles/${document.documentElement.classList.contains("dark") ? "dark" : "positron"}`;
     let current = styleFor();
+
     const m = new maplibregl.Map({
       container: el.current,
       style: current,
@@ -63,21 +100,42 @@ export default function GlobalMap({ waypoints }: { waypoints: GeoPoint[] }) {
       attributionControl: { compact: true },
       renderWorldCopies: true,
     });
-    m.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
-    let firstStyle = true;
-    m.on("style.load", () => { draw(firstStyle); firstStyle = false; });
+    // map.current est assigné immédiatement
     map.current = m;
+
+    m.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
+
+    const onStyleReady = () => {
+      // Premier affichage : centre la route. Au changement de thème : garde le zoom et la position actuelle de l'utilisateur.
+      draw(!hasFitted.current);
+    };
+
+    m.on("load", onStyleReady);
+    m.on("style.load", onStyleReady);
+
     const obs = new MutationObserver(() => {
       const next = styleFor();
-      if (next !== current) { current = next; m.setStyle(next); }
+      if (next !== current) {
+        current = next;
+        m.setStyle(next);
+      }
     });
     obs.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
-    return () => { obs.disconnect(); markers.current.forEach((mk) => mk.remove()); m.remove(); map.current = null; };
+
+    return () => {
+      obs.disconnect();
+      markers.current.forEach((mk) => mk.remove());
+      m.remove();
+      map.current = null;
+    };
   }, []);
 
-  useEffect(() => { draw(true); }, [waypoints]);
+  useEffect(() => {
+    hasFitted.current = false;
+    draw(true);
+  }, [waypoints]);
 
-  // Real sea state (Open-Meteo Marine) at the three chokepoints, drawn on the map. Grey = fallback value, not a measurement.
+  // Données météo réelles aux 3 détroits (Open-Meteo Marine)
   useEffect(() => { fetchMaritimeWeather().then(setWx).catch(() => {}); }, []);
   useEffect(() => {
     const m = map.current;
@@ -89,9 +147,12 @@ export default function GlobalMap({ waypoints }: { waypoints: GeoPoint[] }) {
       node.style.cssText = `width:16px;height:16px;border-radius:9999px;background:${color};border:2px solid #fff;box-shadow:0 0 0 3px ${color}55;cursor:pointer`;
       node.title = `${cp.name}: ${cp.waveHeight} m`;
       const text = cp.live
-        ? `${cp.name} \u00B7 swell ${cp.waveHeight} m (${cp.status}) \u00B7 measured ${cp.fetchedAt.slice(11, 16)} UTC \u00B7 Open-Meteo Marine`
-        : `${cp.name} \u00B7 fallback value, API unreachable`;
-      return new maplibregl.Marker({ element: node }).setLngLat([cp.lon, cp.lat]).setPopup(new maplibregl.Popup({ offset: 12, closeButton: false }).setText(text)).addTo(m);
+        ? `${cp.name} · swell ${cp.waveHeight} m (${cp.status}) · measured ${cp.fetchedAt.slice(11, 16)} UTC · Open-Meteo Marine`
+        : `${cp.name} · fallback value, API unreachable`;
+      return new maplibregl.Marker({ element: node })
+        .setLngLat([cp.lon, cp.lat])
+        .setPopup(new maplibregl.Popup({ offset: 12, closeButton: false }).setText(text))
+        .addTo(m);
     });
     return () => { wxMarkers.current.forEach((mk) => mk.remove()); wxMarkers.current = []; };
   }, [wx]);
@@ -105,7 +166,7 @@ export default function GlobalMap({ waypoints }: { waypoints: GeoPoint[] }) {
           <div className="font-medium">{allLive ? "Sea state at chokepoints" : "Sea state (fallback values)"}</div>
           <div className="flex flex-wrap items-center gap-x-2">
             <span><span className="mr-1 inline-block size-2 rounded-full bg-emerald-500" />&lt; 1 m</span>
-            <span><span className="mr-1 inline-block size-2 rounded-full bg-amber-500" />{"1\u20132.2 m"}</span>
+            <span><span className="mr-1 inline-block size-2 rounded-full bg-amber-500" />{"1–2.2 m"}</span>
             <span><span className="mr-1 inline-block size-2 rounded-full bg-rose-500" />&gt; 2.2 m</span>
             {!allLive && <span><span className="mr-1 inline-block size-2 rounded-full bg-slate-400" />no live data</span>}
           </div>
