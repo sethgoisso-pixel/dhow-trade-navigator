@@ -8,6 +8,9 @@ import { fetchMaritimeWeather, type ChokepointWeather } from "@/lib/dhow-weather
 
 maplibregl.setWorkerUrl(workerUrl);
 
+// Nautical blue seas: azure in light mode, deep navy in dark mode.
+const waterFor = () => (document.documentElement.classList.contains("dark") ? "#0c2a47" : "#bcd9ee");
+
 export default function GlobalMap({ waypoints }: { waypoints: GeoPoint[] }) {
   const el = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
@@ -20,19 +23,18 @@ export default function GlobalMap({ waypoints }: { waypoints: GeoPoint[] }) {
 
   const draw = (shouldFit = false) => {
     const m = map.current;
-    if (!m || !m.isStyleLoaded()) return;
+    if (!m) return;
+    // isStyleLoaded() is false while tiles are still loading: retry once the map is idle instead of silently dropping the draw.
+    if (!m.isStyleLoaded()) {
+      m.once("idle", () => draw(shouldFit));
+      return;
+    }
 
-    // Mers bleues nautiques : bleu azur en clair (#bcd9ee), bleu marine profond en sombre (#0c2a47)
     try {
-      const isDark = document.documentElement.classList.contains("dark");
-      const waterColor = isDark ? "#0c2a47" : "#bcd9ee";
-      if (m.getLayer("water")) {
-        m.setPaintProperty("water", "fill-color", waterColor);
-      }
-      if (m.getLayer("waterway")) {
-        m.setPaintProperty("waterway", "line-color", waterColor);
-      }
-    } catch { /* calques non encore montés */ }
+      const waterColor = waterFor();
+      if (m.getLayer("water")) m.setPaintProperty("water", "fill-color", waterColor);
+      if (m.getLayer("waterway")) m.setPaintProperty("waterway", "line-color", waterColor);
+    } catch { /* layers not mounted yet */ }
 
     const pts = latest.current;
     const coords = seaRoute(pts);
@@ -113,12 +115,38 @@ export default function GlobalMap({ waypoints }: { waypoints: GeoPoint[] }) {
     m.on("load", onStyleReady);
     m.on("style.load", onStyleReady);
 
+    // Theme switch: inject blue seas + gold route directly into the new style so nothing is lost and the camera stays put.
     const obs = new MutationObserver(() => {
       const next = styleFor();
-      if (next !== current) {
-        current = next;
-        m.setStyle(next);
-      }
+      if (next === current) return;
+      current = next;
+      m.setStyle(next, {
+        diff: false,
+        transformStyle: (_prev, style) => {
+          const water = waterFor();
+          const coords = seaRoute(latest.current);
+          const layers = style.layers.map((l) => {
+            if (l.id === "water" && l.type === "fill") return { ...l, paint: { ...l.paint, "fill-color": water } };
+            if (l.id === "waterway" && l.type === "line") return { ...l, paint: { ...l.paint, "line-color": water } };
+            return l;
+          });
+          return {
+            ...style,
+            sources: {
+              ...style.sources,
+              route: {
+                type: "geojson",
+                data: { type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: coords } },
+              },
+            },
+            layers: [
+              ...layers,
+              { id: "route-glow", type: "line", source: "route", paint: { "line-color": "#D4AF37", "line-width": 8, "line-opacity": 0.18, "line-blur": 4 } },
+              { id: "route-line", type: "line", source: "route", layout: { "line-cap": "round" }, paint: { "line-color": "#D4AF37", "line-width": 2.5, "line-dasharray": [2, 1.5] } },
+            ],
+          };
+        },
+      });
     });
     obs.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
 
