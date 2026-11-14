@@ -26,13 +26,34 @@ export type AgentResponse = {
   trace: TraceEvent[];
 };
 
+export const AI_MODEL = "openai/gpt-6-astra";
+
+/** Per-run usage counters, filled by every model call and stored in agent_runs. */
+type Meter = { calls: number; inputTokens: number; outputTokens: number; t0: number };
+const newMeter = (): Meter => ({ calls: 0, inputTokens: 0, outputTokens: 0, t0: Date.now() });
+
+/** Writes one agent-run telemetry row. Never throws: logging must not break the user's request. */
+async function logRun(kind: string, source: string, m: Meter, note: string | null) {
+  try {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin.from("agent_runs").insert({
+      kind, source, model: AI_MODEL, model_calls: m.calls, input_tokens: m.inputTokens,
+      output_tokens: m.outputTokens, duration_ms: Date.now() - m.t0, note: note?.slice(0, 300) ?? null,
+    });
+    if (error) console.error("agent_runs insert", error.message);
+  } catch (e) {
+    console.error("agent_runs insert", e);
+  }
+}
+
 /** One structured model call through the Lovable AI Gateway (streamed, strict JSON schema). */
-async function callModelJSON(apiKey: string, req: Parameters<ModelJSON>[0]): Promise<unknown> {
+async function callModelJSON(apiKey: string, req: Parameters<ModelJSON>[0], meter?: Meter): Promise<unknown> {
+  if (meter) meter.calls++;
   const res = await fetch("https://ai.gateway.lovable.dev/v1/responses", {
     method: "POST",
     headers: { "Content-Type": "application/json", "Lovable-API-Key": apiKey, Authorization: `Bearer ${apiKey}`, "X-Lovable-AIG-SDK": "fetch" },
     body: JSON.stringify({
-      model: "openai/gpt-6-astra",
+      model: AI_MODEL,
       instructions: req.instructions,
       input: req.input,
       stream: true,
@@ -62,7 +83,11 @@ async function callModelJSON(apiKey: string, req: Parameters<ModelJSON>[0]): Pro
         if (!line.startsWith("data:")) continue;
         const raw = line.slice(5).trim();
         if (!raw || raw === "[DONE]") continue;
-        const ev = JSON.parse(raw) as { type?: string; delta?: string };
+        const ev = JSON.parse(raw) as { type?: string; delta?: string; response?: { usage?: { input_tokens?: number; output_tokens?: number } } };
+        if (ev.type === "response.completed" && meter) {
+          meter.inputTokens += ev.response?.usage?.input_tokens ?? 0;
+          meter.outputTokens += ev.response?.usage?.output_tokens ?? 0;
+        }
         if (ev.type === "response.output_text.delta" && ev.delta) text += ev.delta;
         if (ev.type === "response.refusal.delta" || ev.type === "response.failed" || ev.type === "error") throw new Error("AI declined or failed");
       }
@@ -144,11 +169,13 @@ export const planShipment = createServerFn({ method: "POST" })
     };
 
     let note: string | null = null;
+    const meter = newMeter();
     if (!apiKey) note = "AI not configured";
     else if (!allowAiRun()) note = "Demo AI quota reached for this hour";
     else {
       try {
-        const r = await runAgentLoop(form, (req) => callModelJSON(apiKey, req), { sea });
+        const r = await runAgentLoop(form, (req) => callModelJSON(apiKey, req, meter), { sea });
+        if (r.ok) await logRun("plan", "ai", meter, null);
         if (r.ok) return { plan: attach(r.plan), source: "ai", note: null, error: null, trace: r.trace };
         note = r.error;
       } catch (e) {
@@ -156,6 +183,7 @@ export const planShipment = createServerFn({ method: "POST" })
       }
     }
     const p = runToolPipeline(form, { sea });
+    await logRun("plan", "tools", meter, note);
     if (p.ok) return { plan: attach(p.plan), source: "tools", note: `${note} \u2014 ran the tool pipeline without AI`, error: null, trace: p.trace };
     return { plan: null, source: "tools", note, error: p.error, trace: p.trace };
   });
@@ -219,6 +247,7 @@ export const classifyCommodity = createServerFn({ method: "POST" })
     const notes: string[] = [];
 
     const apiKey = process.env["LOVABLE_API_KEY"];
+    const meter = newMeter();
     if (apiKey && allowAiRun()) {
       try {
         const raw = (await callModelJSON(apiKey, {
@@ -226,7 +255,7 @@ export const classifyCommodity = createServerFn({ method: "POST" })
           schema: CLASSIFY_SCHEMA,
           instructions: `You are a customs classification assistant. You receive a product description, a destination, and a list of real HS-2022 candidate subheadings found by a search tool. Choose the best candidate by reading its full description (mind phrases such as "other than" and "not assembled"). Never output a code that is not in the candidate list. Propose the import duty rate as a band of the destination's customs union (ECOWAS CET 0/5/10/20/35, GCC 0/5, EAC 0/10/25/35, CEMAC 0/5/10/20/30). Write 2 sentences of regulatory notes (permits, standards, conformity marking) and list the documents needed for clearance. Be explicit when you are unsure.`,
           input: `Product: "${data.query}"\nDestination: ${data.destination} (${dest.country})\nCandidates:\n${candidates.map((c) => `${c.code} | ${c.description}`).join("\n")}`,
-        })) as { hs_code?: unknown; category?: unknown; duty_rate_percent?: unknown; regulatory_notes?: unknown; required_documents?: unknown };
+        }, meter)) as { hs_code?: unknown; category?: unknown; duty_rate_percent?: unknown; regulatory_notes?: unknown; required_documents?: unknown };
         const code = typeof raw.hs_code === "string" ? formatHs(normalizeHs(raw.hs_code)) : "";
         const chosen = candidates.find((c) => c.code === code);
         if (chosen && isKnownHs(code)) {
@@ -248,6 +277,7 @@ export const classifyCommodity = createServerFn({ method: "POST" })
       notes.push("Demo AI quota reached for this hour: used the search match without AI.");
     }
 
+    await logRun("customs", source, meter, source === "ai" ? null : notes[notes.length - 1] ?? null);
     const defaultBand = ({ AF: 10, ME: 5, EU: 5, AS: 10, AM: 5 } as const)[dest.region];
     const duty = checkDutyRate(dest.country, proposedDuty ?? defaultBand);
     const landed = estimateLanded({ declaredValue: data.declaredValue, dutyRate: duty.rate, country: dest.country, region: dest.region });
@@ -273,3 +303,19 @@ export const classifyCommodity = createServerFn({ method: "POST" })
       notes,
     };
   });
+
+// --- Agent run journal (read-only, numbers only) ---
+
+export type AgentRunRow = {
+  id: string; created_at: string; kind: string; model: string; source: string;
+  model_calls: number; input_tokens: number; output_tokens: number; duration_ms: number; note: string | null;
+};
+
+export const listAgentRuns = createServerFn({ method: "GET" }).handler(async (): Promise<AgentRunRow[]> => {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data, error } = await supabaseAdmin.from("agent_runs")
+    .select("id, created_at, kind, model, source, model_calls, input_tokens, output_tokens, duration_ms, note")
+    .order("created_at", { ascending: false }).limit(200);
+  if (error) { console.error(error.message); return []; }
+  return data ?? [];
+});
