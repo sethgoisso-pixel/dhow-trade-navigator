@@ -26,11 +26,25 @@ type State = {
   completed: boolean;
   steps: string[];
   plan: Plan | null;
-  planSource: PlanSource | null;
+    planSource: PlanSource | null;
+  planNote: string | null;
   dossierRef: string | null;
   log: LogEntry[];
   dispatches: Dispatch[];
 };
+
+ export function getVisitorId(): string {
+  try {
+    let id = localStorage.getItem("dhow.visitorId");
+    if (!id) {
+      id = "v_" + Math.random().toString(36).slice(2, 10);
+      localStorage.setItem("dhow.visitorId", id);
+    }
+    return id;
+  } catch {
+    return "anonymous";
+  }
+}
 
 const MY_DOSSIERS_KEY = "dhow.myDossiers";
 
@@ -66,7 +80,8 @@ let state: State = {
   completed: false,
   steps: [],
   plan: null,
-  planSource: null,
+    planSource: null,
+  planNote: null,
   dossierRef: null,
   log: [],
   dispatches: [],
@@ -135,7 +150,8 @@ export async function runAgent(scenario: Scenario | null) {
     thinking: !scenario,
     stepIndex: 0,
     completed: false,
-    plan: null,
+        plan: null,
+    planNote: null,
     steps: scenario ? ["Running the agent's tools…"] : ["The AI agent is choosing and calling its tools…"],
   });
   pushLog(scenario ? `▶ Demo scenario loaded: ${scenario.title}` : `▶ New cargo request: ${form.origin} → ${form.destination}`, "ok");
@@ -154,8 +170,9 @@ export async function runAgent(scenario: Scenario | null) {
     source = "preset";
   } else {
     try {
-      const r = await planShipment({ data: form });
+            const r = await planShipment({ data: { ...form, visitorId: getVisitorId() } });
       plan = r.plan;
+      set({ planNote: r.note ?? null });
       source = r.source;
       failure = r.error;
       if (r.note && r.plan) { pushLog(`ℹ ${r.note}`, "warn"); toast.warning("Ran without the AI model", { description: r.note }); }
