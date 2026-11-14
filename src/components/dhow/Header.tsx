@@ -43,6 +43,7 @@ const NAV = [
   { to: "/customs", label: "Customs & Compliance" },
   { to: "/dispatch", label: "Autonomous Dispatch" },
   { to: "/scenarios", label: "Architecture" },
+  { to: "/agent-log", label: "Agent Log" },
 ] as const;
 
 export function Header() {
