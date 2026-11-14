@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { Plan, PlanSource } from "./dhow-plan";
 import { runAgentLoop, runToolPipeline, type ModelJSON } from "./agent/agent";
 import type { TraceEvent } from "./agent/types";
+import { clarificationFor, findMissing, normalizeFields } from "./dhow-extract";
 import { checkDutyRate, estimateLanded, hsDescription, isKnownHs, formatHs, normalizeHs, screenCompliance, searchHS } from "./agent/tools";
 import { lookupCity } from "./dhow-plan";
 import { fetchMaritimeWeather, toSeaState } from "./dhow-weather";
@@ -112,7 +113,7 @@ const visitorBuckets = new Map<string, { hour: number; used: number }>();
 function allowAiRun(visitorId?: string): { allowed: boolean; note?: string } {
   const currentHour = Math.floor(Date.now() / 3_600_000);
   const minutesRemaining = Math.max(1, 60 - new Date().getMinutes());
-  const waitMsg = `Réessaie dans ${minutesRemaining} minute${minutesRemaining > 1 ? "s" : ""}.`;
+  const waitMsg = `Try again in ${minutesRemaining} minute${minutesRemaining > 1 ? "s" : ""}.`;
 
   if (globalBucket.hour !== currentHour) {
     globalBucket = { hour: currentHour, used: 0 };
@@ -122,7 +123,7 @@ function allowAiRun(visitorId?: string): { allowed: boolean; note?: string } {
   if (globalBucket.used >= AI_RUNS_GLOBAL_PER_HOUR) {
     return {
       allowed: false,
-      note: `La limite globale d'appels IA est atteinte (100/h pour le site), le résultat vient des outils seuls. ${waitMsg}`,
+      note: `The site-wide AI limit has been reached (100 per hour). The result below comes from the built-in tools only, without AI. ${waitMsg}`,
     };
   }
 
@@ -136,7 +137,7 @@ function allowAiRun(visitorId?: string): { allowed: boolean; note?: string } {
   if (v.used >= AI_RUNS_PER_VISITOR_PER_HOUR) {
     return {
       allowed: false,
-      note: `La limite d'appels IA est atteinte (10/h par visiteur), le résultat vient des outils seuls. ${waitMsg}`,
+      note: `Your AI limit has been reached (10 per hour per visitor). The result below comes from the built-in tools only, without AI. ${waitMsg}`,
     };
   }
 
@@ -312,7 +313,7 @@ export const classifyCommodity = createServerFn({ method: "POST" })
         } else if (!apiKey) {
       notes.push("AI not configured: used the search match without AI.");
     } else {
-      notes.push(quota.note ?? "La limite d'appels IA est atteinte, le résultat vient des outils seuls.");
+      notes.push(quota.note ?? "The AI limit has been reached. The result comes from the built-in tools only, without AI.");
     }
     await logRun("customs", source, meter, source === "ai" ? null : notes[notes.length - 1] ?? null);
     const defaultBand = ({ AF: 10, ME: 5, EU: 5, AS: 10, AM: 5 } as const)[dest.region];
@@ -380,7 +381,7 @@ export const extractShipment = createServerFn({ method: "POST" })
         success: false,
         fields: { origin: null, destination: null, cargoType: null, weight: null, volume: null, declaredValue: null },
         missingFields: [], clarificationQuestion: null, summary: "", source: "fallback",
-        error: "IA non configurée. Le formulaire ci-dessous reste utilisable.",
+        error: "AI is not configured. You can still use the form below.",
       };
     }
 
@@ -390,22 +391,22 @@ export const extractShipment = createServerFn({ method: "POST" })
         success: false,
         fields: { origin: null, destination: null, cargoType: null, weight: null, volume: null, declaredValue: null },
         missingFields: [], clarificationQuestion: null, summary: "", source: "fallback",
-        error: quota.note ?? "La limite d'appels IA est atteinte. Remplis directement le formulaire ci-dessous.",
+        error: quota.note ?? "The AI limit has been reached. Please fill in the form below directly.",
       };
     }
 
     meter.calls++;
     try {
-      const prompt = `Tu es un assistant logistique maritime. Analyse la description et extrais en JSON strict :
-- "origin": Ville et/ou pays de départ (ou null si absent)
-- "destination": Ville et/ou pays d'arrivée (ou null si absent)
-- "cargoType": Nature précise de la marchandise (ou null si absent)
-- "weight": Poids en tonnes (1 conteneur 20ft = 20t, 1 conteneur 40ft = 25t, sinon estimation ou null)
-- "volume": Volume en CBM (1 conteneur 20ft = 33, 40ft = 67, sinon null)
-- "declaredValue": Valeur estimée en USD (ou null)
-- "missingFields": Tableau parmi ["origin", "destination", "cargoType"] listant les champs indispensables absents
-- "clarificationQuestion": Si missingFields n'est pas vide, UNE question très courte et directe en français pour demander l'info manquante. Sinon null.
-- "summary": Une phrase concise résumant ce qui a été compris.`;
+      const prompt = `You read one shipment request and return strict JSON. Always write in English, whatever the language of the request.
+Keys:
+- "origin": departure city and/or country, or null if not stated
+- "destination": arrival city and/or country, or null if not stated
+- "cargoType": the goods, or null if not stated
+- "weight": total weight in metric tonnes, ONLY if the text states a weight (convert kg to tonnes) or a container size (20 ft container = 20, 40 ft container = 25, and say this assumption in the summary). For pallets, cartons, boxes or pieces without a weight, use null. Never guess.
+- "volume": volume in CBM, ONLY if stated or from a container size (20 ft = 33, 40 ft = 67), otherwise null
+- "declaredValue": value in USD, ONLY if stated, otherwise null
+- "summary": one short sentence saying what was understood, and which values were not given.
+Never invent a value. Use null when unsure.`;
 
       const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
@@ -428,30 +429,26 @@ export const extractShipment = createServerFn({ method: "POST" })
 
       await logRun("extraction", "ai", meter, null, EXTRACTION_MODEL);
 
+      // What is missing, and the question to ask, are decided in code, not by the model.
+      const fields = normalizeFields(parsed as Record<string, unknown>);
+      const missing = findMissing(fields);
       return {
         success: true,
-        fields: {
-          origin: parsed.origin ?? null,
-          destination: parsed.destination ?? null,
-          cargoType: parsed.cargoType ?? null,
-          weight: typeof parsed.weight === "number" ? parsed.weight : null,
-          volume: typeof parsed.volume === "number" ? parsed.volume : null,
-          declaredValue: typeof parsed.declaredValue === "number" ? parsed.declaredValue : null,
-        },
-        missingFields: Array.isArray(parsed.missingFields) ? parsed.missingFields : [],
-        clarificationQuestion: parsed.clarificationQuestion ?? null,
-        summary: parsed.summary ?? "Description analysée avec succès.",
+        fields,
+        missingFields: missing,
+        clarificationQuestion: clarificationFor(missing),
+        summary: typeof parsed.summary === "string" && parsed.summary.trim() ? parsed.summary.trim().slice(0, 300) : "Request analysed.",
         source: "ai",
         error: null,
       };
     } catch (e) {
-      const err = e instanceof Error ? e.message : "Erreur IA";
+      const err = e instanceof Error ? e.message : "AI error";
       await logRun("extraction", "fallback", meter, err, EXTRACTION_MODEL);
       return {
         success: false,
         fields: { origin: null, destination: null, cargoType: null, weight: null, volume: null, declaredValue: null },
         missingFields: [], clarificationQuestion: null, summary: "", source: "fallback",
-        error: `Extraction indisponible (${err}). Le formulaire ci-dessous reste utilisable.`,
+        error: `Reading your request is unavailable right now (${err}). You can still use the form below.`,
       };
     }
   });
