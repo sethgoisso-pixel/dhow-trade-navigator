@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AgentLogRouteImport } from './routes/agent-log'
 import { Route as CustomsRouteImport } from './routes/customs'
 import { Route as DispatchRouteImport } from './routes/dispatch'
 import { Route as OptimizerRouteImport } from './routes/optimizer'
@@ -19,6 +20,11 @@ import { Route as DossierRefRouteImport } from './routes/dossier.$ref'
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AgentLogRoute = AgentLogRouteImport.update({
+  id: '/agent-log',
+  path: '/agent-log',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CustomsRoute = CustomsRouteImport.update({
@@ -49,6 +55,7 @@ const DossierRefRoute = DossierRefRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/agent-log': typeof AgentLogRoute
   '/customs': typeof CustomsRoute
   '/dispatch': typeof DispatchRoute
   '/optimizer': typeof OptimizerRoute
@@ -57,6 +64,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/agent-log': typeof AgentLogRoute
   '/customs': typeof CustomsRoute
   '/dispatch': typeof DispatchRoute
   '/optimizer': typeof OptimizerRoute
@@ -66,6 +74,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/agent-log': typeof AgentLogRoute
   '/customs': typeof CustomsRoute
   '/dispatch': typeof DispatchRoute
   '/optimizer': typeof OptimizerRoute
@@ -76,6 +85,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/agent-log'
     | '/customs'
     | '/dispatch'
     | '/optimizer'
@@ -84,6 +94,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/agent-log'
     | '/customs'
     | '/dispatch'
     | '/optimizer'
@@ -92,6 +103,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/agent-log'
     | '/customs'
     | '/dispatch'
     | '/optimizer'
@@ -101,6 +113,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AgentLogRoute: typeof AgentLogRoute
   CustomsRoute: typeof CustomsRoute
   DispatchRoute: typeof DispatchRoute
   OptimizerRoute: typeof OptimizerRoute
@@ -115,6 +128,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/agent-log': {
+      id: '/agent-log'
+      path: '/agent-log'
+      fullPath: '/agent-log'
+      preLoaderRoute: typeof AgentLogRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/customs': {
@@ -157,6 +177,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AgentLogRoute: AgentLogRoute,
   CustomsRoute: CustomsRoute,
   DispatchRoute: DispatchRoute,
   OptimizerRoute: OptimizerRoute,
