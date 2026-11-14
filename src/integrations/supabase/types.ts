@@ -14,6 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
+      agent_runs: {
+        Row: {
+          created_at: string
+          duration_ms: number
+          id: string
+          input_tokens: number
+          kind: string
+          model: string
+          model_calls: number
+          note: string | null
+          output_tokens: number
+          source: string
+        }
+        Insert: {
+          created_at?: string
+          duration_ms?: number
+          id?: string
+          input_tokens?: number
+          kind: string
+          model: string
+          model_calls?: number
+          note?: string | null
+          output_tokens?: number
+          source: string
+        }
+        Update: {
+          created_at?: string
+          duration_ms?: number
+          id?: string
+          input_tokens?: number
+          kind?: string
+          model?: string
+          model_calls?: number
+          note?: string | null
+          output_tokens?: number
+          source?: string
+        }
+        Relationships: []
+      }
       dossiers: {
         Row: {
           cargo: Json
