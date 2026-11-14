@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Route as RouteIcon, ArrowUpRight, Send, Waves } from "lucide-react";
+import { Route as RouteIcon, ArrowUpRight, Send, Waves, AlertCircle } from "lucide-react";
 import { CargoFormPanel } from "@/components/dhow/CargoForm";
 import { RouteResults } from "@/components/dhow/RouteResults";
 import { RouteMap } from "@/components/dhow/RouteMap";
@@ -17,7 +17,7 @@ export const Route = createFileRoute("/optimizer")({
 });
 
 function Optimizer() {
-  const { form, running, plan, steps, stepIndex, planSource, dossierRef, dispatches } = useDhow();
+    const { form, running, plan, steps, stepIndex, planSource, planNote, dossierRef, dispatches } = useDhow();
   const pendingCount = dispatches.filter((d) => d.status === "pending").length;
     const [weather, setWeather] = useState<ChokepointWeather[]>([]);
 
@@ -96,7 +96,14 @@ function Optimizer() {
               <span className="rounded-full bg-gold/10 px-2 py-0.5 font-medium text-gold-2">
                 {planSource === "ai" ? "✦ Dhow Agent (AI + verified tools)" : planSource === "tools" ? "Tool pipeline (no AI)" : planSource === "preset" ? "Preset scenario" : "Simulated Engine"}
               </span>
-            </div>
+                        </div>
+
+            {planNote && planSource === "tools" && (
+              <div className="flex items-start gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-200">
+                <AlertCircle className="size-4 shrink-0 text-amber-400 mt-0.5" />
+                <span>{planNote}</span>
+              </div>
+            )}
 
             {pendingCount > 0 && (
               <div className="flex items-center justify-between rounded-xl border border-gold/30 bg-gold/10 p-3 text-xs">
