@@ -34,11 +34,11 @@ type Meter = { calls: number; inputTokens: number; outputTokens: number; t0: num
 const newMeter = (): Meter => ({ calls: 0, inputTokens: 0, outputTokens: 0, t0: Date.now() });
 
 /** Writes one agent-run telemetry row. Never throws: logging must not break the user's request. */
-async function logRun(kind: string, source: string, m: Meter, note: string | null) {
+async function logRun(kind: string, source: string, m: Meter, note: string | null, modelName: string = AI_MODEL) {
   try {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { error } = await supabaseAdmin.from("agent_runs").insert({
-      kind, source, model: AI_MODEL, model_calls: m.calls, input_tokens: m.inputTokens,
+      kind, source, model: modelName, model_calls: m.calls, input_tokens: m.inputTokens,
       output_tokens: m.outputTokens, duration_ms: Date.now() - m.t0, note: note?.slice(0, 300) ?? null,
     });
     if (error) console.error("agent_runs insert", error.message);
@@ -339,6 +339,121 @@ export const classifyCommodity = createServerFn({ method: "POST" })
       source,
       notes,
     };
+  });
+
+// --- Natural Language Shipment Extraction (Fast & Economic) ---
+
+export const EXTRACTION_MODEL = "google/gemini-3.1-flash-lite";
+
+const ExtractionInput = z.object({
+  text: z.string().min(2).max(1000),
+  visitorId: z.string().max(80).optional(),
+});
+
+export type ExtractionResult = {
+  success: boolean;
+  fields: {
+    origin: string | null;
+    destination: string | null;
+    cargoType: string | null;
+    weight: number | null;
+    volume: number | null;
+    declaredValue: number | null;
+  };
+  missingFields: string[];
+  clarificationQuestion: string | null;
+  summary: string;
+  source: "ai" | "fallback";
+  error: string | null;
+};
+
+export const extractShipment = createServerFn({ method: "POST" })
+  .validator((d: unknown) => ExtractionInput.parse(d))
+  .handler(async ({ data }): Promise<ExtractionResult> => {
+    const apiKey = process.env["LOVABLE_API_KEY"];
+    const meter = newMeter();
+    const quota = allowAiRun(data.visitorId);
+
+    if (!apiKey) {
+      await logRun("extraction", "fallback", meter, "API key missing", EXTRACTION_MODEL);
+      return {
+        success: false,
+        fields: { origin: null, destination: null, cargoType: null, weight: null, volume: null, declaredValue: null },
+        missingFields: [], clarificationQuestion: null, summary: "", source: "fallback",
+        error: "IA non configurée. Le formulaire ci-dessous reste utilisable.",
+      };
+    }
+
+    if (!quota.allowed) {
+      await logRun("extraction", "fallback", meter, quota.note ?? "Quota", EXTRACTION_MODEL);
+      return {
+        success: false,
+        fields: { origin: null, destination: null, cargoType: null, weight: null, volume: null, declaredValue: null },
+        missingFields: [], clarificationQuestion: null, summary: "", source: "fallback",
+        error: quota.note ?? "La limite d'appels IA est atteinte. Remplis directement le formulaire ci-dessous.",
+      };
+    }
+
+    meter.calls++;
+    try {
+      const prompt = `Tu es un assistant logistique maritime. Analyse la description et extrais en JSON strict :
+- "origin": Ville et/ou pays de départ (ou null si absent)
+- "destination": Ville et/ou pays d'arrivée (ou null si absent)
+- "cargoType": Nature précise de la marchandise (ou null si absent)
+- "weight": Poids en tonnes (1 conteneur 20ft = 20t, 1 conteneur 40ft = 25t, sinon estimation ou null)
+- "volume": Volume en CBM (1 conteneur 20ft = 33, 40ft = 67, sinon null)
+- "declaredValue": Valeur estimée en USD (ou null)
+- "missingFields": Tableau parmi ["origin", "destination", "cargoType"] listant les champs indispensables absents
+- "clarificationQuestion": Si missingFields n'est pas vide, UNE question très courte et directe en français pour demander l'info manquante. Sinon null.
+- "summary": Une phrase concise résumant ce qui a été compris.`;
+
+      const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+        body: JSON.stringify({
+          model: EXTRACTION_MODEL,
+          messages: [{ role: "system", content: prompt }, { role: "user", content: data.text }],
+          response_format: { type: "json_object" },
+        }),
+      });
+
+      if (!res.ok) throw new Error(`Gateway HTTP ${res.status}`);
+      const json = (await res.json()) as {
+        usage?: { prompt_tokens?: number; completion_tokens?: number };
+        choices?: Array<{ message?: { content?: string } }>;
+      };
+      meter.inputTokens += json.usage?.prompt_tokens ?? 0;
+      meter.outputTokens += json.usage?.completion_tokens ?? 0;
+      const parsed = JSON.parse(json.choices?.[0]?.message?.content || "{}");
+
+      await logRun("extraction", "ai", meter, null, EXTRACTION_MODEL);
+
+      return {
+        success: true,
+        fields: {
+          origin: parsed.origin ?? null,
+          destination: parsed.destination ?? null,
+          cargoType: parsed.cargoType ?? null,
+          weight: typeof parsed.weight === "number" ? parsed.weight : null,
+          volume: typeof parsed.volume === "number" ? parsed.volume : null,
+          declaredValue: typeof parsed.declaredValue === "number" ? parsed.declaredValue : null,
+        },
+        missingFields: Array.isArray(parsed.missingFields) ? parsed.missingFields : [],
+        clarificationQuestion: parsed.clarificationQuestion ?? null,
+        summary: parsed.summary ?? "Description analysée avec succès.",
+        source: "ai",
+        error: null,
+      };
+    } catch (e) {
+      const err = e instanceof Error ? e.message : "Erreur IA";
+      await logRun("extraction", "fallback", meter, err, EXTRACTION_MODEL);
+      return {
+        success: false,
+        fields: { origin: null, destination: null, cargoType: null, weight: null, volume: null, declaredValue: null },
+        missingFields: [], clarificationQuestion: null, summary: "", source: "fallback",
+        error: `Extraction indisponible (${err}). Le formulaire ci-dessous reste utilisable.`,
+      };
+    }
   });
 
 // --- Agent run journal (read-only, numbers only) ---
