@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { CARGO_TYPES, PORTS } from "@/lib/dhow-data";
 import { runAgent, setForm, useDhow, getVisitorId } from "@/lib/dhow-store";
+import { formFromExtraction } from "@/lib/dhow-extract";
 import { extractShipment, type ExtractionResult } from "@/lib/dhow-ai.functions";
 
 export function CargoFormPanel() {
@@ -31,7 +32,7 @@ export function CargoFormPanel() {
         clarificationQuestion: null,
         summary: "",
         source: "fallback",
-        error: "Erreur de connexion. Vous pouvez remplir directement le formulaire ci-dessous.",
+        error: "Connection error. You can fill in the form below directly.",
       });
     } finally {
       setExtracting(false);
@@ -40,15 +41,11 @@ export function CargoFormPanel() {
 
   const handleConfirm = () => {
     if (!extracted || !extracted.success) return;
-    const f = extracted.fields;
-    setForm({
-      origin: f.origin || form.origin,
-      destination: f.destination || form.destination,
-      cargoType: f.cargoType || form.cargoType,
-      weight: f.weight ?? form.weight,
-      volume: f.volume ?? form.volume,
-      declaredValue: f.declaredValue ?? form.declaredValue,
-    });
+    // Every field is replaced. Nothing from an earlier request is kept, and the
+    // button is disabled while a required field is missing.
+    const values = formFromExtraction(extracted.fields);
+    if (!values) return;
+    setForm(values);
     setConfirmed(true);
   };
 
@@ -80,16 +77,16 @@ export function CargoFormPanel() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Sparkles className="size-4 text-gold-2" />
-            <span className="text-xs font-semibold text-foreground">Décris ton envoi</span>
+            <span className="text-xs font-semibold text-foreground">Describe your shipment</span>
           </div>
           <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-mono">Gemini 3.1 Flash-Lite</span>
         </div>
 
         <Textarea
-          placeholder="Ex: Panneaux solaires, Shenzhen vers Lagos, 1 conteneur de 20 pieds"
+          placeholder="e.g. Solar panels, Shenzhen to Lagos, 20 tonnes in one 20 ft container"
           value={nlText}
           disabled={extracting || running}
-          onChange={(e) => { setNlText(e.target.value); setConfirmed(false); }}
+          onChange={(e) => { setNlText(e.target.value); setConfirmed(false); setExtracted(null); }}
           className="min-h-[64px] text-xs resize-none"
         />
 
@@ -102,18 +99,18 @@ export function CargoFormPanel() {
             className="text-xs h-8 shadow-gold"
           >
             {extracting ? <Loader2 className="size-3.5 animate-spin" /> : <Sparkles className="size-3.5" />}
-            {extracting ? "Extraction IA…" : "Analyser l'envoi"}
+            {extracting ? "Reading your request\u2026" : "Analyze shipment"}
           </Button>
           {confirmed && (
             <span className="inline-flex items-center gap-1 text-xs text-emerald-400 font-medium">
-              <Check className="size-3.5" /> Confirmé & injecté dans le formulaire
+              <Check className="size-3.5" /> Confirmed and copied into the form
             </span>
           )}
         </div>
 
         {/* Message d'erreur ou quota atteint */}
         {extracted && !extracted.success && extracted.error && (
-          <div className="flex items-start gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 p-2.5 text-xs text-amber-200">
+          <div className="flex items-start gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 p-2.5 text-xs text-foreground">
             <AlertCircle className="size-4 shrink-0 text-amber-400 mt-0.5" />
             <span>{extracted.error}</span>
           </div>
@@ -121,10 +118,10 @@ export function CargoFormPanel() {
 
         {/* Question de clarification si information manquante */}
         {extracted?.success && extracted.clarificationQuestion && (
-          <div className="flex items-start gap-2 rounded-xl border border-sky-500/30 bg-sky-500/10 p-2.5 text-xs text-sky-200">
+          <div className="flex items-start gap-2 rounded-xl border border-sky-500/40 bg-sky-500/10 p-2.5 text-xs text-foreground">
             <HelpCircle className="size-4 shrink-0 text-sky-400 mt-0.5" />
             <div className="space-y-1">
-              <div className="font-medium text-sky-300">Question de l'agent :</div>
+              <div className="font-semibold text-sky-700 dark:text-sky-300">Agent question:</div>
               <div>{extracted.clarificationQuestion}</div>
             </div>
           </div>
@@ -133,27 +130,33 @@ export function CargoFormPanel() {
         {/* Récapitulatif compris + bouton Confirmer */}
         {extracted?.success && (
           <div className="space-y-2 rounded-xl border border-border/80 bg-background/50 p-3 text-xs">
-            <div className="font-medium text-muted-foreground">Ce que l'agent a compris :</div>
+            <div className="font-medium text-muted-foreground">What the agent understood:</div>
             <p className="text-foreground">{extracted.summary}</p>
             <div className="flex flex-wrap gap-1.5 pt-1 text-[11px]">
               {extracted.fields.origin && (
-                <span className="rounded-md border border-border px-2 py-0.5 bg-card/80">Origine: <b>{extracted.fields.origin}</b></span>
+                <span className="rounded-md border border-border px-2 py-0.5 bg-card/80">Origin: <b>{extracted.fields.origin}</b></span>
               )}
               {extracted.fields.destination && (
                 <span className="rounded-md border border-border px-2 py-0.5 bg-card/80">Destination: <b>{extracted.fields.destination}</b></span>
               )}
               {extracted.fields.cargoType && (
-                <span className="rounded-md border border-border px-2 py-0.5 bg-card/80">Marchandise: <b>{extracted.fields.cargoType}</b></span>
+                <span className="rounded-md border border-border px-2 py-0.5 bg-card/80">Cargo: <b>{extracted.fields.cargoType}</b></span>
               )}
               {extracted.fields.weight && (
-                <span className="rounded-md border border-border px-2 py-0.5 bg-card/80">Poids: <b>{extracted.fields.weight} t</b></span>
+                <span className="rounded-md border border-border px-2 py-0.5 bg-card/80">Weight: <b>{extracted.fields.weight} t</b></span>
               )}
               {extracted.fields.volume && (
                 <span className="rounded-md border border-border px-2 py-0.5 bg-card/80">Volume: <b>{extracted.fields.volume} CBM</b></span>
               )}
             </div>
 
-            {!confirmed && (
+            {!confirmed && extracted.missingFields.length > 0 && (
+              <p className="pt-1 text-[11px] text-muted-foreground">
+                Add the missing detail in your sentence and analyze again, or fill in the form below directly.
+              </p>
+            )}
+
+            {!confirmed && extracted.missingFields.length === 0 && (
               <div className="pt-2">
                 <Button
                   type="button"
@@ -163,7 +166,7 @@ export function CargoFormPanel() {
                   className="w-full text-xs h-8 border-gold/40 hover:bg-gold/10 hover:text-gold-2 cursor-pointer"
                 >
                   <Check className="size-3.5 text-emerald-400" />
-                  Confirmer ces informations
+                  Confirm these details
                 </Button>
               </div>
             )}
