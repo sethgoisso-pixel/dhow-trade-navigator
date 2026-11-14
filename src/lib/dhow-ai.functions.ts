@@ -16,6 +16,7 @@ const Input = z.object({
   volume: z.number().nonnegative().max(100000),
   declaredValue: z.number().nonnegative().max(1e10),
   deadline: z.string().max(20),
+  visitorId: z.string().max(80).optional(),
 });
 
 export type AgentResponse = {
@@ -97,17 +98,51 @@ async function callModelJSON(apiKey: string, req: Parameters<ModelJSON>[0], mete
 }
 
 /**
- * Protects the demo's AI credits: at most DEMO_AI_RUNS_PER_HOUR agent runs per hour per server instance.
- * Beyond that the app still works, using the tool pipeline without AI.
+ * Protection des crédits IA :
+ * - Maximum 10 exécutions par visiteur par heure.
+ * - Plafond global de sécurité à 100 exécutions par heure pour l'ensemble du site.
+ * Au-delà, l'application bascule automatiquement sur les outils locaux déterministes.
  */
-const DEMO_AI_RUNS_PER_HOUR = 15;
-let bucket = { hour: -1, used: 0 };
-function allowAiRun(): boolean {
-  const hour = Math.floor(Date.now() / 3_600_000);
-  if (bucket.hour !== hour) bucket = { hour, used: 0 };
-  if (bucket.used >= DEMO_AI_RUNS_PER_HOUR) return false;
-  bucket.used++;
-  return true;
+const AI_RUNS_PER_VISITOR_PER_HOUR = 10;
+const AI_RUNS_GLOBAL_PER_HOUR = 100;
+
+let globalBucket = { hour: -1, used: 0 };
+const visitorBuckets = new Map<string, { hour: number; used: number }>();
+
+function allowAiRun(visitorId?: string): { allowed: boolean; note?: string } {
+  const currentHour = Math.floor(Date.now() / 3_600_000);
+  const minutesRemaining = Math.max(1, 60 - new Date().getMinutes());
+  const waitMsg = `Réessaie dans ${minutesRemaining} minute${minutesRemaining > 1 ? "s" : ""}.`;
+
+  if (globalBucket.hour !== currentHour) {
+    globalBucket = { hour: currentHour, used: 0 };
+    visitorBuckets.clear();
+  }
+
+  if (globalBucket.used >= AI_RUNS_GLOBAL_PER_HOUR) {
+    return {
+      allowed: false,
+      note: `La limite globale d'appels IA est atteinte (100/h pour le site), le résultat vient des outils seuls. ${waitMsg}`,
+    };
+  }
+
+  const vid = (visitorId && visitorId.trim()) || "anonymous";
+  let v = visitorBuckets.get(vid);
+  if (!v || v.hour !== currentHour) {
+    v = { hour: currentHour, used: 0 };
+    visitorBuckets.set(vid, v);
+  }
+
+  if (v.used >= AI_RUNS_PER_VISITOR_PER_HOUR) {
+    return {
+      allowed: false,
+      note: `La limite d'appels IA est atteinte (10/h par visiteur), le résultat vient des outils seuls. ${waitMsg}`,
+    };
+  }
+
+  globalBucket.used++;
+  v.used++;
+  return { allowed: true };
 }
 
 export const planShipment = createServerFn({ method: "POST" })
@@ -168,10 +203,11 @@ export const planShipment = createServerFn({ method: "POST" })
       return out;
     };
 
-    let note: string | null = null;
+        let note: string | null = null;
     const meter = newMeter();
+    const quota = allowAiRun(data.visitorId);
     if (!apiKey) note = "AI not configured";
-    else if (!allowAiRun()) note = "Demo AI quota reached for this hour";
+    else if (!quota.allowed) note = quota.note!;
     else {
       try {
         const r = await runAgentLoop(form, (req) => callModelJSON(apiKey, req, meter), { sea });
@@ -194,6 +230,7 @@ const CustomsInput = z.object({
   query: z.string().min(2).max(200),
   destination: z.string().min(2).max(100),
   declaredValue: z.number().nonnegative().max(1e10),
+  visitorId: z.string().max(80).optional(),
 });
 
 export type CustomsResult = {
@@ -246,9 +283,10 @@ export const classifyCommodity = createServerFn({ method: "POST" })
     let source: "ai" | "tools" = "tools";
     const notes: string[] = [];
 
-    const apiKey = process.env["LOVABLE_API_KEY"];
+        const apiKey = process.env["LOVABLE_API_KEY"];
     const meter = newMeter();
-    if (apiKey && allowAiRun()) {
+    const quota = allowAiRun(data.visitorId);
+    if (apiKey && quota.allowed) {
       try {
         const raw = (await callModelJSON(apiKey, {
           schemaName: "dhow_classification",
@@ -271,12 +309,11 @@ export const classifyCommodity = createServerFn({ method: "POST" })
       } catch (e) {
         notes.push(`${e instanceof Error ? e.message : "AI unavailable"}: used the search match without AI.`);
       }
-    } else if (!apiKey) {
+        } else if (!apiKey) {
       notes.push("AI not configured: used the search match without AI.");
     } else {
-      notes.push("Demo AI quota reached for this hour: used the search match without AI.");
+      notes.push(quota.note ?? "La limite d'appels IA est atteinte, le résultat vient des outils seuls.");
     }
-
     await logRun("customs", source, meter, source === "ai" ? null : notes[notes.length - 1] ?? null);
     const defaultBand = ({ AF: 10, ME: 5, EU: 5, AS: 10, AM: 5 } as const)[dest.region];
     const duty = checkDutyRate(dest.country, proposedDuty ?? defaultBand);
