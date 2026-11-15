@@ -28,7 +28,7 @@ export type AgentResponse = {
   trace: TraceEvent[];
 };
 
-export const AI_MODEL = "openai/gpt-6-astra";
+export const AI_MODEL = "openai/gpt-6.1-sol";
 
 /** Per-run usage counters, filled by every model call and stored in agent_runs. */
 type Meter = { calls: number; inputTokens: number; outputTokens: number; t0: number };
