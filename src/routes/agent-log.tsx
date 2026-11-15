@@ -28,7 +28,7 @@ function AgentLog() {
   const avg = (n: number) => (ai.length ? Math.round(n / ai.length) : 0);
   return (
     <div className="mx-auto max-w-6xl px-4 py-6">
-      <PageTitle title="Agent Log" sub="Every agent run, measured on the server. Token counts come from the AI Gateway response, not estimates." />
+      <PageTitle title="Agent Log" sub="Every agent run, measured on the server. Token counts come from the AI provider response, not estimates." />
       <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4 text-sm">
         {[
           ["Runs with AI", String(ai.length)],

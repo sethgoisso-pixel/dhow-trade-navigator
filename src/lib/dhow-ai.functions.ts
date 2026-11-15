@@ -1,3 +1,4 @@
+import { callGeminiJSON } from "./dhow-gemini";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import type { Plan, PlanSource } from "./dhow-plan";
@@ -28,7 +29,7 @@ export type AgentResponse = {
   trace: TraceEvent[];
 };
 
-export const AI_MODEL = "openai/gpt-6.1-sol";
+export const AI_MODEL = "google/gemini-2.5-flash";
 
 /** Per-run usage counters, filled by every model call and stored in agent_runs. */
 type Meter = { calls: number; inputTokens: number; outputTokens: number; t0: number };
@@ -48,54 +49,9 @@ async function logRun(kind: string, source: string, m: Meter, note: string | nul
   }
 }
 
-/** One structured model call through the Lovable AI Gateway (streamed, strict JSON schema). */
+/** The same strict action schema, now sent directly to Google instead of the credit gateway. */
 async function callModelJSON(apiKey: string, req: Parameters<ModelJSON>[0], meter?: Meter): Promise<unknown> {
-  if (meter) meter.calls++;
-  const res = await fetch("https://ai.gateway.lovable.dev/v1/responses", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "Lovable-API-Key": apiKey, Authorization: `Bearer ${apiKey}`, "X-Lovable-AIG-SDK": "fetch" },
-    body: JSON.stringify({
-      model: AI_MODEL,
-      instructions: req.instructions,
-      input: req.input,
-      stream: true,
-      store: false,
-      reasoning: { effort: "low" },
-      text: { format: { type: "json_schema", name: req.schemaName, strict: true, schema: req.schema } },
-    }),
-  });
-  if (!res.ok || !res.body) {
-    const body = await res.text().catch(() => "");
-    console.error("Dhow AI gateway error", res.status, body.slice(0, 300));
-    throw new Error(res.status === 402 ? "AI credits exhausted" : res.status === 429 ? "AI rate limited" : `AI unavailable (${res.status})`);
-  }
-  const reader = res.body.getReader();
-  const dec = new TextDecoder();
-  let buf = "";
-  let text = "";
-  for (;;) {
-    const { value, done } = await reader.read();
-    if (done) break;
-    buf += dec.decode(value, { stream: true });
-    let i: number;
-    while ((i = buf.indexOf("\n\n")) >= 0) {
-      const frame = buf.slice(0, i);
-      buf = buf.slice(i + 2);
-      for (const line of frame.split("\n")) {
-        if (!line.startsWith("data:")) continue;
-        const raw = line.slice(5).trim();
-        if (!raw || raw === "[DONE]") continue;
-        const ev = JSON.parse(raw) as { type?: string; delta?: string; response?: { usage?: { input_tokens?: number; output_tokens?: number } } };
-        if (ev.type === "response.completed" && meter) {
-          meter.inputTokens += ev.response?.usage?.input_tokens ?? 0;
-          meter.outputTokens += ev.response?.usage?.output_tokens ?? 0;
-        }
-        if (ev.type === "response.output_text.delta" && ev.delta) text += ev.delta;
-        if (ev.type === "response.refusal.delta" || ev.type === "response.failed" || ev.type === "error") throw new Error("AI declined or failed");
-      }
-    }
-  }
-  return JSON.parse(text) as unknown;
+  return callGeminiJSON(apiKey, AI_MODEL, req, meter);
 }
 
 /**
@@ -149,7 +105,7 @@ function allowAiRun(visitorId?: string): { allowed: boolean; note?: string } {
 export const planShipment = createServerFn({ method: "POST" })
   .inputValidator((d) => Input.parse(d))
   .handler(async ({ data }): Promise<AgentResponse> => {
-    const apiKey = process.env["LOVABLE_API_KEY"];
+    const apiKey = process.env["GEMINI_API_KEY"];
     const sea = toSeaState(await fetchMaritimeWeather().catch(() => []));
 
     // Optional inputs: volume and value. Estimates are always labelled, and the value is checked against a sourced benchmark.
@@ -208,7 +164,7 @@ export const planShipment = createServerFn({ method: "POST" })
     const meter = newMeter();
     const quota = allowAiRun(data.visitorId);
     if (!apiKey) note = "AI not configured";
-    else if (!quota.allowed) note = quota.note!;
+    else if (!quota.allowed) note = quota.note ?? "The AI limit has been reached. The result comes from built-in tools only.";
     else {
       try {
         const r = await runAgentLoop(form, (req) => callModelJSON(apiKey, req, meter), { sea });
@@ -274,9 +230,9 @@ export const classifyCommodity = createServerFn({ method: "POST" })
     const dest = lookupCity(data.destination);
     if (!dest) throw new Error(`Dhow does not know "${data.destination}" yet. Try a major port or city, for example Jebel Ali, Dubai, Cotonou, Lagos, Mombasa or Rotterdam.`);
     const candidates = searchHS(data.query, 8);
-    if (candidates.length === 0) throw new Error(`No HS subheading matches "${data.query}". Describe the product in more detail.`);
+    if (!candidates[0]) throw new Error(`No HS subheading matches "${data.query}". Describe the product in more detail.`);
 
-    let pick = candidates[0]!;
+    let pick = candidates[0];
     let proposedDuty: number | null = null;
     let category = `HS chapter ${pick.code.slice(0, 2)}`;
     let aiNotes = "";
@@ -284,7 +240,7 @@ export const classifyCommodity = createServerFn({ method: "POST" })
     let source: "ai" | "tools" = "tools";
     const notes: string[] = [];
 
-        const apiKey = process.env["LOVABLE_API_KEY"];
+        const apiKey = process.env["GEMINI_API_KEY"];
     const meter = newMeter();
     const quota = allowAiRun(data.visitorId);
     if (apiKey && quota.allowed) {
@@ -369,9 +325,9 @@ export type ExtractionResult = {
 };
 
 export const extractShipment = createServerFn({ method: "POST" })
-  .validator((d: unknown) => ExtractionInput.parse(d))
+  .inputValidator((d: unknown) => ExtractionInput.parse(d))
   .handler(async ({ data }): Promise<ExtractionResult> => {
-    const apiKey = process.env["LOVABLE_API_KEY"];
+    const apiKey = process.env["GEMINI_API_KEY"];
     const meter = newMeter();
     const quota = allowAiRun(data.visitorId);
 
@@ -395,7 +351,6 @@ export const extractShipment = createServerFn({ method: "POST" })
       };
     }
 
-    meter.calls++;
     try {
       const prompt = `You read one shipment request and return strict JSON. Always write in English, whatever the language of the request.
 Keys:
@@ -408,24 +363,24 @@ Keys:
 - "summary": one short sentence saying what was understood, and which values were not given.
 Never invent a value. Use null when unsure.`;
 
-      const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-        body: JSON.stringify({
-          model: EXTRACTION_MODEL,
-          messages: [{ role: "system", content: prompt }, { role: "user", content: data.text }],
-          response_format: { type: "json_object" },
-        }),
-      });
-
-      if (!res.ok) throw new Error(`Gateway HTTP ${res.status}`);
-      const json = (await res.json()) as {
-        usage?: { prompt_tokens?: number; completion_tokens?: number };
-        choices?: Array<{ message?: { content?: string } }>;
-      };
-      meter.inputTokens += json.usage?.prompt_tokens ?? 0;
-      meter.outputTokens += json.usage?.completion_tokens ?? 0;
-      const parsed = JSON.parse(json.choices?.[0]?.message?.content || "{}");
+      const parsed = await callGeminiJSON(apiKey, EXTRACTION_MODEL, {
+        instructions: prompt,
+        input: data.text,
+        schema: {
+          type: "object",
+          properties: {
+            origin: { type: ["string", "null"] },
+            destination: { type: ["string", "null"] },
+            cargoType: { type: ["string", "null"] },
+            weight: { type: ["number", "null"] },
+            volume: { type: ["number", "null"] },
+            declaredValue: { type: ["number", "null"] },
+            summary: { type: "string" },
+          },
+          required: ["origin", "destination", "cargoType", "weight", "volume", "declaredValue", "summary"],
+          additionalProperties: false,
+        },
+      }, meter) as Record<string, unknown>;
 
       await logRun("extraction", "ai", meter, null, EXTRACTION_MODEL);
 
