@@ -1,0 +1,2 @@
+- [x] Connect the saved Gemini key to planning, customs and extraction while preserving local fallback and usage logging.
+- [x] Verify automated tests and real shipment flow, including Agent Log.
