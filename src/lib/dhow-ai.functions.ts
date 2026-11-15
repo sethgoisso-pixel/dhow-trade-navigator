@@ -392,7 +392,7 @@ Never invent a value. Use null when unsure.`;
         fields,
         missingFields: missing,
         clarificationQuestion: clarificationFor(missing),
-        summary: typeof parsed.summary === "string" && parsed.summary.trim() ? parsed.summary.trim().slice(0, 300) : "Request analysed.",
+        summary: typeof parsed["summary"] === "string" && parsed["summary"].trim() ? parsed["summary"].trim().slice(0, 300) : "Request analysed.",
         source: "ai",
         error: null,
       };

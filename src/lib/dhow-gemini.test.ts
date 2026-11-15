@@ -13,8 +13,10 @@ describe("direct Gemini structured adapter", () => {
     const meter = { calls: 0, inputTokens: 0, outputTokens: 0 };
     const schema = { type: "object", properties: { action: { type: "string" } }, required: ["action"] };
     expect(await callGeminiJSON("test-only", "google/gemini-2.5-flash", { instructions: "Choose", input: "Cargo", schema }, meter)).toEqual({ action: "finish" });
-    expect(meter).toEqual({ calls: 1, inputTokens: 123, outputTokens: 47 });
-    const [url, init] = request.mock.calls[0];
+    expect(meter).toMatchObject({ calls: 1, inputTokens: 123, outputTokens: 47 });
+    const call = request.mock.calls[0];
+    if (!call) throw new Error("Expected a Google request");
+    const [url, init] = call;
     expect(url).toBe("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent");
     expect(JSON.parse(init.body).generationConfig.responseJsonSchema).toEqual(schema);
   });

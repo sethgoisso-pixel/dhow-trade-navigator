@@ -1,5 +1,5 @@
 /** Direct Google calls; the key is supplied only by a server handler. */
-export type GeminiMeter = { calls: number; inputTokens: number; outputTokens: number };
+export type GeminiMeter = { calls: number; inputTokens: number; outputTokens: number; lastGeminiCallAt?: number };
 
 export async function callGeminiJSON(
   apiKey: string,
@@ -7,8 +7,15 @@ export async function callGeminiJSON(
   req: { instructions: string; input: string; schema: unknown },
   meter?: GeminiMeter,
 ): Promise<unknown> {
-  if (meter) meter.calls++;
   const modelId = model.replace(/^google\//, "");
+  // Space the multi-turn Flash loop instead of exhausting the free-tier
+  // minute quota within a single shipment. No failed inference is replayed.
+  if (meter && modelId === "gemini-2.5-flash") {
+    const wait = Math.max(0, 15_000 - (Date.now() - (meter.lastGeminiCallAt ?? 0)));
+    if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
+    meter.lastGeminiCallAt = Date.now();
+  }
+  if (meter) meter.calls++;
   const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modelId)}:generateContent`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
