@@ -261,13 +261,17 @@ const GCC: Bloc = { bloc: "GCC Common Customs Tariff", bands: [0, 5] };
 const BLOC: Record<string, Bloc> = {
   Benin: ECOWAS, Nigeria: ECOWAS, Ghana: ECOWAS, "Côte d'Ivoire": ECOWAS, Senegal: ECOWAS, Togo: ECOWAS,
   Cameroon: CEMAC, Angola: { bloc: "national tariff", bands: [] },
-  Kenya: EAC, Tanzania: EAC,
-  UAE: GCC, "Saudi Arabia": GCC,
+  Kenya: EAC, Tanzania: EAC, Uganda: EAC, Rwanda: EAC,
+  Gambia: ECOWAS, Guinea: ECOWAS, "Sierra Leone": ECOWAS,
+  Gabon: CEMAC, Congo: CEMAC,
+  UAE: GCC, "Saudi Arabia": GCC, Qatar: GCC, Kuwait: GCC, Oman: GCC, Bahrain: GCC,
 };
 /** Standard VAT rates (indicative, as of the last update of this table: verify with the national tax authority). */
 const VAT_BY_COUNTRY: Record<string, number> = {
   UAE: 5, "Saudi Arabia": 15, Benin: 18, Nigeria: 7.5, Ghana: 15, "Côte d'Ivoire": 18, Senegal: 18, Togo: 18, Cameroon: 19.25,
   Kenya: 16, Tanzania: 18, "South Africa": 15, Morocco: 20, Egypt: 14, Mozambique: 16,
+  Uganda: 18, Rwanda: 18, Ethiopia: 15, Zambia: 16, Zimbabwe: 15, Gabon: 18, Gambia: 15, Tunisia: 19, Algeria: 19, Namibia: 15, Mauritius: 15, Madagascar: 20, Mauritania: 16,
+  Qatar: 0, Kuwait: 0, Oman: 5, Bahrain: 10, Jordan: 16,
 };
 
 const VAT_FALLBACK = { AF: 18, ME: 5, EU: 19, AS: 13, AM: 10 } as const;
@@ -326,7 +330,7 @@ export function chokepoints(o: ResolvedCity, d: ResolvedCity, hub: ResolvedCity)
   const southEastAsia = ["Malaysia", "Singapore", "Vietnam", "Thailand", "Indonesia", "China", "Hong Kong", "South Korea", "Japan"].includes(o.country);
   if (southEastAsia && asia) out.push("Strait of Malacca / Singapore (typical for East Asia to the Gulf)");
   if (hub.country === "UAE" && hub.code !== "AEKLF" && hub.code !== "AEFJR") out.push("Strait of Hormuz (Jebel Ali and Dubai ports are inside the Gulf)");
-  const redSeaCountries = ["Benin", "Nigeria", "Ghana", "Togo", "Côte d'Ivoire", "Senegal", "Cameroon", "Morocco", "Egypt"];
+  const redSeaCountries = ["Benin", "Nigeria", "Ghana", "Togo", "Côte d'Ivoire", "Senegal", "Cameroon", "Morocco", "Egypt", "Guinea", "Sierra Leone", "Liberia", "Gambia", "Mauritania", "Gabon", "Congo", "DR Congo", "Algeria", "Tunisia", "Namibia", "Burkina Faso", "Mali", "Niger"];
   // Suez / Cape exposure only when the cargo crosses between the Asia-Gulf side and the Europe / Americas / West Africa side.
   // A shipment between two points on the same side (for example Douala to Cotonou) never goes near the Red Sea.
   const eastSide = (c: ResolvedCity) => c.region === "AS" || c.region === "ME";

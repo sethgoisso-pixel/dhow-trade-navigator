@@ -10,7 +10,7 @@
  * and the final plan is verified (the HS code must exist in the HS-2022 list, the duty rate must be a legal band).
  */
 import type { CargoForm } from "../dhow-data";
-import { lookupCity, simulatePlan, type Plan, type PlanOverrides, type ResolvedCity } from "../dhow-plan";
+import { lookupCity, simulatePlan, unknownCityMessage, type Plan, type PlanOverrides, type ResolvedCity } from "../dhow-plan";
 import {
   checkDutyRate, estimateLanded, estimateRoutes, type SeaState, formatHs, hsDescription, isKnownHs, normalizeHs, resolvePort,
   screenCompliance, searchHS, vatFor, type HsHit, type LandedCost, type ScreenResult,
@@ -149,8 +149,7 @@ export function runToolPipeline(form: CargoForm, opts: { hsQuery?: string; emit?
   const po = step("resolve_port", { query: form.origin });
   const pd = step("resolve_port", { query: form.destination });
   if (!po.ok || !pd.ok) {
-    const bad = [!po.ok ? form.origin : null, !pd.ok ? form.destination : null].filter(Boolean).join(" and ");
-    return { ok: false, error: `Dhow does not know ${bad} yet. Try a major port or city, for example Ningbo, Jebel Ali, Cotonou, Lagos, Mombasa or Rotterdam.`, trace };
+    return { ok: false, error: unknownCityMessage([!po.ok ? form.origin : null, !pd.ok ? form.destination : null].filter((x): x is string => !!x)), trace };
   }
   const hsr = step("search_hs_code", { query: opts.hsQuery ?? form.cargoType });
   if (!hsr.ok) return { ok: false, error: `No HS subheading matched "${opts.hsQuery ?? form.cargoType}". Describe the product in more detail.`, trace };
@@ -214,6 +213,9 @@ export type LoopResult = { ok: true; plan: Plan; trace: TraceEvent[] } | { ok: f
 /** The AI model drives the tools. Throws only if the model call itself fails, so the caller can fall back. */
 export async function runAgentLoop(form: CargoForm, callModel: ModelJSON, opts: { emit?: (e: TraceEvent) => void; maxSteps?: number; sea?: SeaState } = {}): Promise<LoopResult> {
   const trace: TraceEvent[] = [];
+  // Refuse an unknown port before any model call: an unknown city must never cost AI credits.
+  const unknownPorts = [form.origin, form.destination].filter((c) => !lookupCity(c));
+  if (unknownPorts.length) return { ok: false, error: unknownCityMessage(unknownPorts), trace };
   const ctx: Ctx = { form, state: {}, sea: opts.sea };
   const maxSteps = opts.maxSteps ?? 6;
   let n = 0;
@@ -273,7 +275,7 @@ export async function runAgentLoop(form: CargoForm, callModel: ModelJSON, opts: 
   const plan = assemble(form, ctx.state, trace, grounded, opts.sea);
   if (!plan) {
     const r = estimateRoutes(form, undefined, opts.sea);
-    return { ok: false, error: r.ok ? "Could not assemble a plan from the tool results." : `Dhow does not know ${r.unknown.join(" and ")} yet. Try a major port or city.`, trace };
+    return { ok: false, error: r.ok ? "Could not assemble a plan from the tool results." : unknownCityMessage(r.unknown), trace };
   }
   return { ok: true, plan, trace };
 }
