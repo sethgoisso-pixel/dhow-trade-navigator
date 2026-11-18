@@ -352,7 +352,9 @@ export function simulatePlan(f: CargoForm, presetSteps?: string[], hsQuery?: str
   const vatRate = ov.vat?.rate ?? defVatRate;
   const vatLabel = ov.vat?.label ?? defVatLabel;
   const dutyRate = ov.dutyRate ?? (hs ? (d.region === "AF" ? hs.dutyAfrica : hs.dutyAE) : DUTY[d.region]);
-  const cif = value * 1.06;
+  // CIF = goods + the freight of the recommended option (C) + insurance assumed at 0.5% of the goods. The same figure is shown in the route cards.
+  const freight = options.find((x) => x.key === "C")?.cost ?? Math.round(value * 0.06);
+  const cif = value + freight + value * 0.005;
   const duty = (cif * dutyRate) / 100;
   const tariffs: TariffLine[] = [
     { label: `Import duty (${d.country})${ov.dutyLabel ? ` — ${ov.dutyLabel}` : ""}`, rate: `${dutyRate}%`, amount: Math.round(duty) },
@@ -376,7 +378,7 @@ export function simulatePlan(f: CargoForm, presetSteps?: string[], hsQuery?: str
       kind: "invoice", title: "Commercial Invoice", reference: `${ref}-CI`, incoterms: `CIF ${d.name} (Incoterms® 2020)`, parties,
       meta: [{ label: "Payment terms", value: "To be agreed between the parties" }, { label: "Country of origin", value: o.country }, { label: "Currency", value: "USD" }],
       columns: ["HS Code", "Description", "Qty", "Amount"],
-      rows: [[hsCode, description, `${pkgs} pkgs (est.)`, money(value)], ["-", "Ocean freight & insurance (assumed 6%)", "1 lot", money(value * 0.06)]],
+      rows: [[hsCode, description, `${pkgs} pkgs (est.)`, money(value)], ["-", "Freight (recommended option) & insurance (0.5%, assumed)", "1 lot", money(cif - value)]],
       totals: [{ label: "FOB value", value: money(value) }, { label: "Total CIF value", value: money(cif) }],
       marks: `DHOW / ${hsCode} / ${d.code}`,
     },

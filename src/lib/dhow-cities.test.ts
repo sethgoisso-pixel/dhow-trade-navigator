@@ -73,3 +73,47 @@ describe("unknown cities cost nothing", () => {
     if (!r.ok) expect(r.error).toContain("Atlantis");
   });
 });
+
+describe("lot 2: ports, French words, freight in the duty base", () => {
+  const ricePlan = { origin: "Laem Chabang", destination: "Abidjan", cargoType: "Rice", weight: 25, volume: 50, declaredValue: 15000 };
+  it("understands common French product names", async () => {
+    const { searchHS } = await import("./agent/tools");
+    expect(searchHS("Riz", 1)[0]?.code.startsWith("1006")).toBe(true);
+    expect(searchHS("Coton", 1)[0]?.code).toBe("5201.00");
+    expect(searchHS("pièces de moto", 3).some((h) => h.code.startsWith("8714"))).toBe(true);
+  });
+  it("uses the freight of the recommended route in the duty base", () => {
+    const r = runToolPipeline(ricePlan);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const c = r.plan.options.find((o) => o.key === "C")!;
+    const duty = r.plan.customs.tariffs.find((t) => t.label.startsWith("Import duty"))!;
+    const expectedCif = 15000 + c.cost + 15000 * 0.005;
+    expect(Math.abs(duty.amount - Math.round((expectedCif * parseFloat(duty.rate)) / 100))).toBeLessThanOrEqual(1);
+  });
+  it("shows the port checks as free and does not spend the model budget on them", async () => {
+    const calls: string[] = [];
+    const script = [
+      { action: "search_hs_code", query: "rice" }, { action: "screen_compliance" }, { action: "estimate_routes" },
+      { action: "estimate_landed_cost", duty_rate_percent: 20 }, { action: "finish", briefing: "" },
+    ];
+    let i = 0;
+    const r = await runAgentLoop(ricePlan, async (req) => { calls.push(req.input.slice(0, 20)); const a = script[Math.min(i++, script.length - 1)]!; return { thought: "t", query: "", hs_code: "", duty_rate_percent: 0, hub: "", briefing: "", ...a }; });
+    expect(r.ok).toBe(true);
+    expect(calls.length).toBe(5);
+    if (r.ok) {
+      expect(r.trace.slice(0, 2).every((t) => t.tool === "resolve_port" && t.summary.startsWith("(checked by Dhow)"))).toBe(true);
+      expect(r.trace.some((t) => t.summary.includes("run by the verifier"))).toBe(false);
+    }
+  });
+  it("keeps the agent's own duty rate when a failed search happens first", async () => {
+    const script = [
+      { action: "search_hs_code", query: "zzzqqq" }, { action: "search_hs_code", query: "rice" }, { action: "screen_compliance" },
+      { action: "estimate_routes" }, { action: "estimate_landed_cost", duty_rate_percent: 20 }, { action: "finish", briefing: "" },
+    ];
+    let i = 0;
+    const r = await runAgentLoop(ricePlan, async () => { const a = script[Math.min(i++, script.length - 1)]!; return { thought: "t", query: "", hs_code: "", duty_rate_percent: 0, hub: "", briefing: "", ...a }; });
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.plan.customs.tariffs[0]!.rate).toBe("20%");
+  });
+});
