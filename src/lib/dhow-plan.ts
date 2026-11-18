@@ -36,7 +36,7 @@ export type Plan = {
 };
 export type PlanSource = "ai" | "tools" | "simulated" | "preset";
 
-type City = { lat: number; lng: number; region: Region; country: string; code: string };
+type City = { lat: number; lng: number; region: Region; country: string; code: string; /** Never picked automatically as a transshipment hub (inland cities and smaller ports). Still fine as origin or destination. */ noHub?: boolean };
 const GEO: Record<string, City> = {
   ningbo: { lat: 29.87, lng: 121.55, region: "AS", country: "China", code: "CNNGB" },
   shanghai: { lat: 31.23, lng: 121.47, region: "AS", country: "China", code: "CNSHA" },
@@ -104,12 +104,177 @@ const GEO: Record<string, City> = {
   algeciras: { lat: 36.13, lng: -5.44, region: "EU", country: "Spain", code: "ESALG" },
   genoa: { lat: 44.4, lng: 8.92, region: "EU", country: "Italy", code: "ITGOA" },
   felixstowe: { lat: 51.96, lng: 1.35, region: "EU", country: "United Kingdom", code: "GBFXT" },
+  bangkok: { lat: 13.70, lng: 100.57, region: "AS", country: "Thailand", code: "THBKK" },
+  hanoi: { lat: 21.03, lng: 105.85, region: "AS", country: "Vietnam", code: "VNHAN" },
+  "hai phong": { lat: 20.85, lng: 106.68, region: "AS", country: "Vietnam", code: "VNHPH" },
+  "da nang": { lat: 16.08, lng: 108.22, region: "AS", country: "Vietnam", code: "VNDAD" },
+  manila: { lat: 14.59, lng: 120.97, region: "AS", country: "Philippines", code: "PHMNL" },
+  delhi: { lat: 28.61, lng: 77.21, region: "AS", country: "India", code: "INDEL" },
+  chennai: { lat: 13.08, lng: 80.29, region: "AS", country: "India", code: "INMAA" },
+  kolkata: { lat: 22.57, lng: 88.36, region: "AS", country: "India", code: "INCCU" },
+  kochi: { lat: 9.97, lng: 76.27, region: "AS", country: "India", code: "INCOK" },
+  dhaka: { lat: 23.81, lng: 90.41, region: "AS", country: "Bangladesh", code: "BDDAC" },
+  penang: { lat: 5.41, lng: 100.34, region: "AS", country: "Malaysia", code: "MYPEN" },
+  surabaya: { lat: -7.2, lng: 112.73, region: "AS", country: "Indonesia", code: "IDSUB" },
+  yangon: { lat: 16.77, lng: 96.16, region: "AS", country: "Myanmar", code: "MMRGN" },
+  kaohsiung: { lat: 22.61, lng: 120.3, region: "AS", country: "Taiwan", code: "TWKHH" },
+  taipei: { lat: 25.13, lng: 121.74, region: "AS", country: "Taiwan", code: "TWTPE" },
+  osaka: { lat: 34.65, lng: 135.43, region: "AS", country: "Japan", code: "JPOSA" },
+  yokohama: { lat: 35.45, lng: 139.65, region: "AS", country: "Japan", code: "JPYOK" },
+  incheon: { lat: 37.45, lng: 126.6, region: "AS", country: "South Korea", code: "KRINC" },
+  seoul: { lat: 37.57, lng: 126.98, region: "AS", country: "South Korea", code: "KRSEL" },
+  xiamen: { lat: 24.48, lng: 118.08, region: "AS", country: "China", code: "CNXMN" },
+  dalian: { lat: 38.91, lng: 121.64, region: "AS", country: "China", code: "CNDLC" },
+  beijing: { lat: 39.9, lng: 116.4, region: "AS", country: "China", code: "CNBJS" },
+  chengdu: { lat: 30.57, lng: 104.07, region: "AS", country: "China", code: "CNCTU" },
+  wuhan: { lat: 30.59, lng: 114.31, region: "AS", country: "China", code: "CNWUH" },
+  yiwu: { lat: 29.31, lng: 120.08, region: "AS", country: "China", code: "CNYIW" },
+  foshan: { lat: 23.02, lng: 113.12, region: "AS", country: "China", code: "CNFOS" },
+  dongguan: { lat: 23.02, lng: 113.75, region: "AS", country: "China", code: "CNDGG" },
+  mersin: { lat: 36.8, lng: 34.64, region: "EU", country: "Turkey", code: "TRMER" },
+  izmir: { lat: 38.42, lng: 27.14, region: "EU", country: "Turkey", code: "TRIZM" },
+  riyadh: { lat: 24.71, lng: 46.68, region: "ME", country: "Saudi Arabia", code: "SARUH" },
+  doha: { lat: 25.29, lng: 51.53, region: "ME", country: "Qatar", code: "QADOH" },
+  kuwait: { lat: 29.37, lng: 47.98, region: "ME", country: "Kuwait", code: "KWKWI" },
+  muscat: { lat: 23.61, lng: 58.59, region: "ME", country: "Oman", code: "OMMCT" },
+  salalah: { lat: 17.0, lng: 54.0, region: "ME", country: "Oman", code: "OMSLL" },
+  sohar: { lat: 24.5, lng: 56.6, region: "ME", country: "Oman", code: "OMSOH" },
+  manama: { lat: 26.23, lng: 50.58, region: "ME", country: "Bahrain", code: "BHBAH" },
+  aqaba: { lat: 29.52, lng: 35.0, region: "ME", country: "Jordan", code: "JOAQJ" },
+  amman: { lat: 31.95, lng: 35.93, region: "ME", country: "Jordan", code: "JOAMM" },
+  beirut: { lat: 33.9, lng: 35.5, region: "ME", country: "Lebanon", code: "LBBEY" },
+  accra: { lat: 5.56, lng: -0.2, region: "AF", country: "Ghana", code: "GHACC", noHub: true },
+  takoradi: { lat: 4.89, lng: -1.75, region: "AF", country: "Ghana", code: "GHTKD", noHub: true },
+  nairobi: { lat: -1.29, lng: 36.82, region: "AF", country: "Kenya", code: "KENBO", noHub: true },
+  kampala: { lat: 0.35, lng: 32.58, region: "AF", country: "Uganda", code: "UGKLA", noHub: true },
+  kigali: { lat: -1.95, lng: 30.06, region: "AF", country: "Rwanda", code: "RWKGL", noHub: true },
+  "addis ababa": { lat: 9.03, lng: 38.74, region: "AF", country: "Ethiopia", code: "ETADD", noHub: true },
+  kinshasa: { lat: -4.32, lng: 15.31, region: "AF", country: "DR Congo", code: "CDFIH", noHub: true },
+  matadi: { lat: -5.82, lng: 13.45, region: "AF", country: "DR Congo", code: "CDMAT", noHub: true },
+  lubumbashi: { lat: -11.66, lng: 27.48, region: "AF", country: "DR Congo", code: "CDFBM", noHub: true },
+  "pointe-noire": { lat: -4.78, lng: 11.86, region: "AF", country: "Congo", code: "CGPNR", noHub: true },
+  brazzaville: { lat: -4.27, lng: 15.28, region: "AF", country: "Congo", code: "CGBZV", noHub: true },
+  libreville: { lat: 0.39, lng: 9.45, region: "AF", country: "Gabon", code: "GALBV", noHub: true },
+  "port harcourt": { lat: 4.78, lng: 7.01, region: "AF", country: "Nigeria", code: "NGPHC", noHub: true },
+  abuja: { lat: 9.06, lng: 7.49, region: "AF", country: "Nigeria", code: "NGABV", noHub: true },
+  kano: { lat: 12.0, lng: 8.52, region: "AF", country: "Nigeria", code: "NGKAN", noHub: true },
+  ouagadougou: { lat: 12.37, lng: -1.52, region: "AF", country: "Burkina Faso", code: "BFOUA", noHub: true },
+  bamako: { lat: 12.64, lng: -8.0, region: "AF", country: "Mali", code: "MLBKO", noHub: true },
+  niamey: { lat: 13.51, lng: 2.11, region: "AF", country: "Niger", code: "NENIM", noHub: true },
+  conakry: { lat: 9.51, lng: -13.71, region: "AF", country: "Guinea", code: "GNCKY", noHub: true },
+  freetown: { lat: 8.48, lng: -13.23, region: "AF", country: "Sierra Leone", code: "SLFNA", noHub: true },
+  monrovia: { lat: 6.3, lng: -10.8, region: "AF", country: "Liberia", code: "LRMLW", noHub: true },
+  banjul: { lat: 13.45, lng: -16.58, region: "AF", country: "Gambia", code: "GMBJL", noHub: true },
+  nouakchott: { lat: 18.08, lng: -15.98, region: "AF", country: "Mauritania", code: "MRNKC", noHub: true },
+  lusaka: { lat: -15.39, lng: 28.32, region: "AF", country: "Zambia", code: "ZMLUN", noHub: true },
+  harare: { lat: -17.83, lng: 31.05, region: "AF", country: "Zimbabwe", code: "ZWHRE", noHub: true },
+  "cape town": { lat: -33.92, lng: 18.42, region: "AF", country: "South Africa", code: "ZACPT", noHub: true },
+  "port louis": { lat: -20.16, lng: 57.5, region: "AF", country: "Mauritius", code: "MUPLU", noHub: true },
+  toamasina: { lat: -18.15, lng: 49.4, region: "AF", country: "Madagascar", code: "MGTMM", noHub: true },
+  algiers: { lat: 36.77, lng: 3.06, region: "AF", country: "Algeria", code: "DZALG", noHub: true },
+  tunis: { lat: 36.8, lng: 10.18, region: "AF", country: "Tunisia", code: "TNTUN", noHub: true },
+  cairo: { lat: 30.04, lng: 31.24, region: "AF", country: "Egypt", code: "EGCAI", noHub: true },
+  lobito: { lat: -12.35, lng: 13.54, region: "AF", country: "Angola", code: "AOLOB", noHub: true },
+  "walvis bay": { lat: -22.95, lng: 14.5, region: "AF", country: "Namibia", code: "NAWVB", noHub: true },
+  barcelona: { lat: 41.35, lng: 2.17, region: "EU", country: "Spain", code: "ESBCN" },
+  madrid: { lat: 40.42, lng: -3.7, region: "EU", country: "Spain", code: "ESMAD" },
+  naples: { lat: 40.84, lng: 14.27, region: "EU", country: "Italy", code: "ITNAP" },
+  milan: { lat: 45.46, lng: 9.19, region: "EU", country: "Italy", code: "ITMIL" },
+  lisbon: { lat: 38.7, lng: -9.14, region: "EU", country: "Portugal", code: "PTLIS" },
+  marseille: { lat: 43.3, lng: 5.37, region: "EU", country: "France", code: "FRMRS" },
+  amsterdam: { lat: 52.37, lng: 4.9, region: "EU", country: "Netherlands", code: "NLAMS" },
+  bremerhaven: { lat: 53.55, lng: 8.58, region: "EU", country: "Germany", code: "DEBRV" },
+  berlin: { lat: 52.52, lng: 13.4, region: "EU", country: "Germany", code: "DEBER" },
+  gdansk: { lat: 54.35, lng: 18.65, region: "EU", country: "Poland", code: "PLGDN" },
+  warsaw: { lat: 52.23, lng: 21.01, region: "EU", country: "Poland", code: "PLWAW" },
+  constanta: { lat: 44.17, lng: 28.65, region: "EU", country: "Romania", code: "ROCND" },
+  manchester: { lat: 53.48, lng: -2.24, region: "EU", country: "United Kingdom", code: "GBMAN" },
+  houston: { lat: 29.73, lng: -95.27, region: "AM", country: "USA", code: "USHOU" },
+  savannah: { lat: 32.08, lng: -81.09, region: "AM", country: "USA", code: "USSAV" },
+  chicago: { lat: 41.88, lng: -87.63, region: "AM", country: "USA", code: "USCHI" },
+  toronto: { lat: 43.65, lng: -79.38, region: "AM", country: "Canada", code: "CATOR" },
+  vancouver: { lat: 49.29, lng: -123.11, region: "AM", country: "Canada", code: "CAVAN" },
+  montreal: { lat: 45.5, lng: -73.55, region: "AM", country: "Canada", code: "CAMTR" },
+  manzanillo: { lat: 19.05, lng: -104.32, region: "AM", country: "Mexico", code: "MXZLO" },
+  "mexico city": { lat: 19.43, lng: -99.13, region: "AM", country: "Mexico", code: "MXMEX" },
+  panama: { lat: 8.98, lng: -79.52, region: "AM", country: "Panama", code: "PAPTY" },
+  "buenos aires": { lat: -34.6, lng: -58.38, region: "AM", country: "Argentina", code: "ARBUE" },
+  callao: { lat: -12.05, lng: -77.15, region: "AM", country: "Peru", code: "PECLL" },
+  lima: { lat: -12.05, lng: -77.03, region: "AM", country: "Peru", code: "PELIM" },
+  cartagena: { lat: 10.4, lng: -75.5, region: "AM", country: "Colombia", code: "COCTG" },
+  guayaquil: { lat: -2.2, lng: -79.9, region: "AM", country: "Ecuador", code: "ECGYE" },
+  valparaiso: { lat: -33.04, lng: -71.62, region: "AM", country: "Chile", code: "CLVAP" },
+  santiago: { lat: -33.45, lng: -70.67, region: "AM", country: "Chile", code: "CLSCL" },
+  kingston: { lat: 17.97, lng: -76.79, region: "AM", country: "Jamaica", code: "JMKIN" },
+  paranagua: { lat: -25.5, lng: -48.5, region: "AM", country: "Brazil", code: "BRPNG" },
+  "rio de janeiro": { lat: -22.9, lng: -43.17, region: "AM", country: "Brazil", code: "BRRIO" },
 };
 
+/** Other names people type for a city or port that the table already holds. */
+const ALIASES: Record<string, string> = {
+  bombay: "mumbai", "nhava sheva": "mumbai", jnpt: "mumbai", "jawaharlal nehru": "mumbai",
+  saigon: "ho chi minh", "hcmc": "ho chi minh", "ho chi minh city": "ho chi minh", "cat lai": "ho chi minh",
+  canton: "guangzhou", nansha: "guangzhou", hongkong: "hong kong", hk: "hong kong",
+  "kuala lumpur": "port klang", klang: "port klang", "tanjung pelepas": "singapore", "pasir gudang": "singapore",
+  apapa: "lagos", "tin can": "lagos", lekki: "lagos", "lagos apapa": "lagos",
+  "dar es-salaam": "dar es salaam",  abijan: "abidjan",
+  nyc: "new york", "newark": "new york", "los angles": "los angeles",  "long beach": "los angeles",
+  "gênes": "genoa", genova: "genoa", athens: "piraeus", "brussels": "antwerp", "bruxelles": "antwerp",
+  "tanger": "tanger med", tangier: "tanger med", "tangiers": "tanger med", "mombassa": "mombasa",
+  "jebel ali port": "jebel ali", jafza: "jebel ali", "port of dubai": "dubai", "dubai ports": "dubai",
+  ajman: "sharjah", khalifa: "abu dhabi",
+  "ad dammam": "dammam",
+  "alexandrie": "alexandria", "le caire": "cairo", "le havre port": "le havre", "pointe noire": "pointe-noire",
+  "porto novo": "cotonou", "porto-novo": "cotonou", 
+  "abidjan port": "abidjan", 
+  "ningbo zhoushan": "ningbo", zhoushan: "ningbo", "tianjin xingang": "tianjin", xingang: "tianjin",
+  "kuwait city": "kuwait", "rio": "rio de janeiro", "sao paolo": "sao paulo",
+};
+
+const norm = (x: string) => x.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+const KEY_INDEX: { n: string; key: string }[] = [
+  ...Object.keys(GEO).map((k) => ({ n: norm(k), key: k })),
+  ...Object.entries(ALIASES).map(([a, k]) => ({ n: norm(a), key: k })),
+].sort((a, b) => b.n.length - a.n.length);
+
+/** Finds a known city or port in free text. Whole words only, accents and punctuation ignored ("Lomé", "São Paulo, BR", "Port of Cotonou"). */
 export function lookupCity(q: string): (City & { name: string }) | null {
-  const s = q.toLowerCase();
-  const key = Object.keys(GEO).sort((a, b) => b.length - a.length).find((k) => s.includes(k));
-  return key ? { ...GEO[key]!, name: q.split(",")[0]!.trim() } : null;
+  const s = ` ${norm(q)} `;
+  const hit = KEY_INDEX.find((e) => e.n.length > 0 && s.includes(` ${e.n} `));
+  return hit ? { ...GEO[hit.key]!, name: q.split(",")[0]!.trim() } : null;
+}
+
+const editDistance = (a: string, b: string): number => {
+  const m = a.length, n = b.length;
+  const d = Array.from({ length: m + 1 }, (_, i) => [i, ...new Array<number>(n).fill(0)]);
+  for (let j = 1; j <= n; j++) d[0]![j] = j;
+  for (let i = 1; i <= m; i++) for (let j = 1; j <= n; j++) d[i]![j] = Math.min(d[i - 1]![j]! + 1, d[i]![j - 1]! + 1, d[i - 1]![j - 1]! + (a[i - 1] === b[j - 1] ? 0 : 1));
+  return d[m]![n]!;
+};
+const titleCase = (k: string) => k.replace(/\b\w/g, (c) => c.toUpperCase());
+
+/** Closest known cities for an unrecognised name (typos, partial names). Returns display strings such as "Mombasa (Kenya)". */
+export function suggestCities(q: string, max = 3): string[] {
+  const t = norm(q.split(",")[0] ?? "");
+  if (t.length < 3) return [];
+  const scored = new Map<string, number>();
+  for (const e of KEY_INDEX) {
+    const limit = e.n.length <= 5 ? 1 : e.n.length <= 8 ? 2 : 3;
+    let dist = editDistance(t, e.n);
+    if (e.n.startsWith(t) || (t.length >= 4 && e.n.includes(t))) dist = Math.min(dist, 1);
+    for (const w of t.split(" ")) if (w.length >= 4 && w === e.n.split(" ")[0]) dist = Math.min(dist, 1);
+    if (dist <= limit) scored.set(e.key, Math.min(scored.get(e.key) ?? 99, dist));
+  }
+  return [...scored.entries()].sort((a, b) => a[1] - b[1]).slice(0, max).map(([k]) => `${titleCase(k)} (${GEO[k]!.country})`);
+}
+
+/** The message shown when a city or port is not in the table. Suggests the closest names instead of a bare refusal. */
+export function unknownCityMessage(names: string[]): string {
+  const list = names.map((n) => `"${n.trim()}"`).join(" and ");
+  const tips = names.flatMap((n) => suggestCities(n, 2));
+  const uniq = [...new Set(tips)];
+  const did = uniq.length ? ` Did you mean ${uniq.join(" or ")}?` : "";
+  return `Dhow does not know ${list} yet.${did} Try a major port or city, for example Ningbo, Jebel Ali, Cotonou, Lagos, Mombasa or Rotterdam.`;
 }
 
 const VAT: Record<Region, [number, string]> = { AF: [18, "VAT / TVA"], ME: [5, "UAE / GCC VAT"], EU: [19, "EU import VAT"], AS: [13, "Import VAT"], AM: [10, "Sales / import tax"] };
@@ -137,7 +302,7 @@ export function routeModel(f: CargoForm, o: ResolvedCity, d: ResolvedCity, hubOv
   if (o.region === "AF" && d.region === "AF" && direct < 2500 && via(hub) > direct * 1.25) {
     let best: ResolvedCity | null = null;
     for (const [k, c] of Object.entries(GEO)) {
-      if (c.region !== "AF" || c.code === o.code || c.code === d.code || k === "johannesburg" || k === "lomé") continue;
+      if (c.region !== "AF" || c.noHub || c.code === o.code || c.code === d.code || k === "johannesburg" || k === "lomé") continue;
       if (!best || via(c) < via(best)) best = { ...c, name: k.replace(/\b\w/g, (ch) => ch.toUpperCase()) };
     }
     if (best && via(best) < via(hub)) {

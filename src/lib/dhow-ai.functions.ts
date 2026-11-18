@@ -1,12 +1,11 @@
 import { callGeminiJSON } from "./dhow-gemini";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import type { Plan, PlanSource } from "./dhow-plan";
+import { lookupCity, unknownCityMessage, type Plan, type PlanSource } from "./dhow-plan";
 import { runAgentLoop, runToolPipeline, type ModelJSON } from "./agent/agent";
 import type { TraceEvent } from "./agent/types";
 import { clarificationFor, findMissing, normalizeFields } from "./dhow-extract";
 import { checkDutyRate, estimateLanded, hsDescription, isKnownHs, formatHs, normalizeHs, screenCompliance, searchHS } from "./agent/tools";
-import { lookupCity } from "./dhow-plan";
 import { fetchMaritimeWeather, toSeaState } from "./dhow-weather";
 import { buildValuation, fetchReferencePriceDiag, REFERENCE_COMMODITIES, seriesForHs } from "./dhow-reference";
 
@@ -228,7 +227,7 @@ export const classifyCommodity = createServerFn({ method: "POST" })
   .inputValidator((d) => CustomsInput.parse(d))
   .handler(async ({ data }): Promise<CustomsResult> => {
     const dest = lookupCity(data.destination);
-    if (!dest) throw new Error(`Dhow does not know "${data.destination}" yet. Try a major port or city, for example Jebel Ali, Dubai, Cotonou, Lagos, Mombasa or Rotterdam.`);
+    if (!dest) throw new Error(unknownCityMessage([data.destination]));
     const candidates = searchHS(data.query, 8);
     if (!candidates[0]) throw new Error(`No HS subheading matches "${data.query}". Describe the product in more detail.`);
 
