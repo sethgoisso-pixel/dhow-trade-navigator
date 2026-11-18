@@ -28,7 +28,7 @@ export type AgentResponse = {
   trace: TraceEvent[];
 };
 
-export const AI_MODEL = "google/gemini-2.5-flash";
+export const AI_MODEL = "google/gemini-3.1-flash-lite";
 
 /** Per-run usage counters, filled by every model call and stored in agent_runs. */
 type Meter = { calls: number; inputTokens: number; outputTokens: number; t0: number };
