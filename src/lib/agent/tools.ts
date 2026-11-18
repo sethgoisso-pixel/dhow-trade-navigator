@@ -159,7 +159,27 @@ function nearestWord(t: string, vocab: Map<string, number>): string | null {
   return bestD <= max ? best : null;
 }
 
-export function searchHS(query: string, k = 5): HsHit[] {
+/** French trade words people type. The English equivalent is appended, so the English HS-2022 texts can be matched. */
+const FR_EN: [RegExp, string][] = [
+  [/\briz\b/, "rice"], [/\bcoton\b/, "cotton"], [/\bcaf[eé]\b/, "coffee"], [/\bcacao\b/, "cocoa"], [/\bma[iï]s\b/, "maize corn"], [/\bbl[eé]\b/, "wheat"],
+  [/\bsucre\b/, "sugar"], [/\bhuile de palme\b/, "palm oil"], [/\bhuile\b/, "oil"], [/\bnoix de cajou\b|\banacarde\b/, "cashew nuts"], [/\bkarit[eé]\b/, "shea"],
+  [/\bmanioc\b/, "cassava"], [/\bigname\b/, "yam"], [/\bpoissons?\b/, "fish"], [/\bcrevettes?\b/, "shrimps"], [/\bviande\b/, "meat"], [/\bpoulet\b|\bvolaille\b/, "poultry chicken"],
+  [/\blait\b/, "milk"], [/\bfarine\b/, "flour"], [/\bsel\b/, "salt"], [/\bciment\b/, "cement"], [/\bacier\b/, "steel"], [/\bengrais\b/, "fertilizers"],
+  [/\bm[eé]dicaments?\b/, "medicaments medicines"], [/\bpanneaux? solaires?\b/, "solar panels photovoltaic modules"],
+  [/\bpi[eè]ces? (?:d[eé]tach[eé]es )?(?:de |pour |d')?motos?\b/, "motorcycle parts"], [/\bmotos?\b|\bmotocyclettes?\b/, "motorcycles"],
+  [/\bvoitures?\b/, "cars motor vehicles"], [/\bpneus?\b/, "tyres tires"], [/\btissus?\b/, "fabrics textiles"], [/\bv[eê]tements?\b/, "clothing garments"],
+  [/\bchaussures?\b/, "footwear shoes"], [/\bt[eé]l[eé]phones?\b/, "telephones smartphones"], [/\bordinateurs?\b/, "computers"], [/\bbois\b/, "wood timber"],
+  [/\bplastiques?\b/, "plastics"], [/\bverre\b/, "glass"], [/\bpapier\b/, "paper"], [/\bcarburant\b/, "fuel diesel"], [/\bp[eé]trole\b/, "petroleum oil"],
+  [/\bmachines?\b/, "machinery"], [/\bmat[eé]riaux de construction\b/, "construction materials"], [/\bl[eé]gumes?\b/, "vegetables"], [/\bcongel[eé]\w*/, "frozen"],
+];
+export function withEnglish(query: string): string {
+  const q = query.toLowerCase();
+  const add = FR_EN.filter(([re]) => re.test(q)).map(([, en]) => en);
+  return add.length ? `${query} ${add.join(" ")}` : query;
+}
+
+export function searchHS(rawQuery: string, k = 5): HsHit[] {
+  const query = withEnglish(rawQuery);
   const { docs: ds, idf: w } = index();
   const direct = query.match(/\b\d{4}\.?\d{2}\b/);
   const out: HsHit[] = [];
@@ -294,14 +314,17 @@ export function checkDutyRate(country: string, proposed: number): DutyAssessment
 
 export type LandedCost = {
   cif: number;
+  /** Freight used in the CIF base (from the route estimate), or null when the 6% fallback was used. */
+  freightUsd: number | null;
   lines: { label: string; rate: string; amount: number }[];
   totalTaxesAndFees: number;
   totalLanded: number;
   assumptions: string[];
 };
 
-export function estimateLanded(opts: { declaredValue: number; dutyRate: number; country: string; region: "AF" | "ME" | "EU" | "AS" | "AM" }): LandedCost {
-  const cif = opts.declaredValue * 1.06;
+export function estimateLanded(opts: { declaredValue: number; dutyRate: number; country: string; region: "AF" | "ME" | "EU" | "AS" | "AM"; freightUsd?: number }): LandedCost {
+  const hasFreight = typeof opts.freightUsd === "number" && opts.freightUsd > 0;
+  const cif = hasFreight ? opts.declaredValue + (opts.freightUsd as number) + opts.declaredValue * 0.005 : opts.declaredValue * 1.06;
   const duty = (cif * opts.dutyRate) / 100;
   const vatRate = vatFor(opts.country, opts.region).rate;
   const vat = ((cif + duty) * vatRate) / 100;
@@ -315,10 +338,11 @@ export function estimateLanded(opts: { declaredValue: number; dutyRate: number; 
   const totalTaxesAndFees = lines.reduce((s, l) => s + l.amount, 0);
   return {
     cif: Math.round(cif),
+    freightUsd: hasFreight ? (opts.freightUsd as number) : null,
     lines,
     totalTaxesAndFees,
     totalLanded: Math.round(cif + totalTaxesAndFees),
-    assumptions: ["CIF = declared value × 1.06 (freight and insurance assumed at 6%)", "Port/terminal and brokerage amounts are flat model assumptions"],
+    assumptions: [hasFreight ? "CIF = declared value + freight of the recommended route option + insurance assumed at 0.5% of the value" : "CIF = declared value × 1.06 (freight and insurance assumed at 6%, no route estimate yet)", "Port/terminal and brokerage amounts are flat model assumptions"],
   };
 }
 

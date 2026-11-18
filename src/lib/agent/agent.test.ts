@@ -137,7 +137,7 @@ describe("agent loop (model chooses the tools)", () => {
   });
   it("stops after the step budget even if the model never finishes", async () => {
     const r = await runAgentLoop(solar.form, scripted([{ action: "resolve_port", query: "Ningbo" }]).call, { maxSteps: 3 });
-    expect(r.trace.filter((t) => t.kind === "tool" && !t.summary.startsWith("(run by")).length).toBe(3);
+    expect(r.trace.filter((t) => t.kind === "tool" && !t.summary.startsWith("(run by") && !t.summary.startsWith("(checked by")).length).toBe(3);
   });
   it("propagates a model failure so the caller can fall back", async () => {
     await expect(runAgentLoop(solar.form, async () => { throw new Error("AI unavailable (500)"); })).rejects.toThrow("AI unavailable");

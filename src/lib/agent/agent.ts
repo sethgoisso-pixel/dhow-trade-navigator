@@ -78,7 +78,8 @@ export function runTool(name: ToolName, a: ToolArgs, ctx: Ctx): { ok: boolean; s
         if (!state.hs || state.hs.code !== code) state.hs = { code, description: hsDescription(code) ?? "", score: state.hs?.score ?? 0.5 };
         const duty = checkDutyRate(dest.country, a.duty_rate_percent ?? 10);
         state.duty = duty;
-        const landed = estimateLanded({ declaredValue: form.declaredValue, dutyRate: duty.rate, country: dest.country, region: dest.region });
+        const freightUsd = state.routes?.options.find((o) => o.key === "C")?.cost;
+        const landed = estimateLanded({ declaredValue: form.declaredValue, dutyRate: duty.rate, country: dest.country, region: dest.region, ...(freightUsd ? { freightUsd } : {}) });
         state.landed = landed;
         return { ok: true, summary: `HS ${code}, duty ${duty.rate}% (${duty.note}), landed ${usd(landed.totalLanded)}`, result: { hs: code, duty, landed } };
       }
@@ -193,7 +194,8 @@ Tools (set only the fields the tool needs, leave other string fields "" and duty
 
 Rules:
 - Never invent HS codes, prices, distances or tariff numbers. Numbers come from tool observations only.
-- Call search_hs_code, estimate_routes and estimate_landed_cost at least once before finishing. Use at most 6 tool calls.
+- Dhow has already checked both ports, so do not call resolve_port. Describe products in English for search_hs_code.
+- Call search_hs_code, estimate_routes and then estimate_landed_cost (routes first, because the landed cost uses the freight of the route estimate) at least once before finishing. Use at most 6 tool calls.
 - If a tool reports an unknown port or a failure, adapt (for example try a different query) or finish and say what is missing.
 - When you finish (action "finish"), write "briefing": 1 or 2 sentences for the merchant, grounded only in the observations (route exposure, compliance flags, duty assumption). Do not repeat raw numbers you were not given. Never mention dates, deadlines, carrier names or any fact that is not in the observations.
 - "thought" is one short sentence about why you take this step.`;
@@ -227,7 +229,17 @@ export async function runAgentLoop(form: CargoForm, callModel: ModelJSON, opts: 
   const transcript: string[] = [];
   let briefing: string | null = null;
 
-  for (let turn = 0; turn < maxSteps + 1; turn++) {
+  // Ports are checked by code, not by the model: no model call, and they do not count against the tool budget.
+  for (const q of [form.origin, form.destination]) {
+    const t0 = Date.now();
+    const r = runTool("resolve_port", { query: q }, ctx);
+    push({ kind: "tool", tool: "resolve_port", args: { query: q }, summary: `(checked by Dhow) ${r.summary}`, ms: Math.max(1, Date.now() - t0), ok: r.ok });
+    transcript.push(`${transcript.length + 1}. (checked by Dhow) resolve_port(query=${JSON.stringify(q)})\n   observation (${r.ok ? "ok" : "failed"}): ${clip(JSON.stringify(r.result), 300)}`);
+  }
+  // Every tool call the model makes uses the budget, except a search that found nothing (a wording problem, not a decision); the loop stays bounded.
+  let used = 0;
+
+  for (let turn = 0; turn < maxSteps + 4; turn++) {
     const input = `Cargo request: ${JSON.stringify(form)}\n\n${transcript.length ? `Steps so far:\n${transcript.join("\n")}\n\n` : ""}Choose the next action.`;
     const t0 = Date.now();
     const raw = await callModel({ instructions: AGENT_INSTRUCTIONS, input, schemaName: "dhow_action", schema: ACTION_SCHEMA });
@@ -238,7 +250,7 @@ export async function runAgentLoop(form: CargoForm, callModel: ModelJSON, opts: 
       briefing = raw.briefing.trim() ? clip(raw.briefing.trim(), 400) : null;
       break;
     }
-    if (turn >= maxSteps) break;
+    if (used >= maxSteps) break;
     const args: ToolArgs = {
       ...(raw.query ? { query: raw.query } : {}),
       ...(raw.hs_code ? { hs_code: raw.hs_code } : {}),
@@ -248,6 +260,7 @@ export async function runAgentLoop(form: CargoForm, callModel: ModelJSON, opts: 
     const t1 = Date.now();
     const r = runTool(raw.action, args, ctx);
     push({ kind: "tool", tool: raw.action, args: args as Record<string, string | number | boolean | null>, summary: r.summary, ms: Math.max(1, Date.now() - t1), ok: r.ok });
+    if (!(raw.action === "search_hs_code" && !r.ok)) used++;
     transcript.push(`${transcript.length + 1}. thought: ${raw.thought}\n   call: ${raw.action}(${argsLine(args)})\n   observation (${r.ok ? "ok" : "failed"}): ${clip(JSON.stringify(r.result), 1400)}`);
   }
 
@@ -264,6 +277,12 @@ export async function runAgentLoop(form: CargoForm, callModel: ModelJSON, opts: 
   if (dest && ctx.state.hs && !ctx.state.landed) {
     const band = ({ AF: 10, ME: 5, EU: 5, AS: 10, AM: 5 } as const)[dest.region];
     ensure("estimate_landed_cost", { duty_rate_percent: band }, false);
+  } else if (dest && ctx.state.hs && ctx.state.landed) {
+    // The landed cost must use the freight of the final route option: recompute it with the agent's own duty rate if the routes changed after it.
+    const finalFreight = ctx.state.routes?.options.find((o) => o.key === "C")?.cost ?? null;
+    if (finalFreight !== null && ctx.state.landed.freightUsd !== finalFreight) {
+      ensure("estimate_landed_cost", { hs_code: ctx.state.hs.code, duty_rate_percent: ctx.state.duty?.rate ?? 10 }, false);
+    }
   }
   if (!ctx.state.hs) return { ok: false, error: "The agent could not identify an HS code for this cargo.", trace };
   const known = isKnownHs(ctx.state.hs.code);
