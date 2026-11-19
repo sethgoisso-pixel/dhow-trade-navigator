@@ -159,7 +159,7 @@ function nearestWord(t: string, vocab: Map<string, number>): string | null {
   return bestD <= max ? best : null;
 }
 
-/** French trade words people type. The English equivalent is appended, so the English HS-2022 texts can be matched. */
+/** French trade words people type. They are replaced by the English words, so the English HS-2022 texts can be matched. */
 const FR_EN: [RegExp, string][] = [
   [/\briz\b/, "rice"], [/\bcoton\b/, "cotton"], [/\bcaf[eé]\b/, "coffee"], [/\bcacao\b/, "cocoa"], [/\bma[iï]s\b/, "maize corn"], [/\bbl[eé]\b/, "wheat"],
   [/\bsucre\b/, "sugar"], [/\bhuile de palme\b/, "palm oil"], [/\bhuile\b/, "oil"], [/\bnoix de cajou\b|\banacarde\b/, "cashew nuts"], [/\bkarit[eé]\b/, "shea"],
@@ -173,9 +173,9 @@ const FR_EN: [RegExp, string][] = [
   [/\bmachines?\b/, "machinery"], [/\bmat[eé]riaux de construction\b/, "construction materials"], [/\bl[eé]gumes?\b/, "vegetables"], [/\bcongel[eé]\w*/, "frozen"],
 ];
 export function withEnglish(query: string): string {
-  const q = query.toLowerCase();
-  const add = FR_EN.filter(([re]) => re.test(q)).map(([, en]) => en);
-  return add.length ? `${query} ${add.join(" ")}` : query;
+  let out = query;
+  for (const [re, en] of FR_EN) out = out.replace(new RegExp(re.source, "gi"), en);
+  return out;
 }
 
 export function searchHS(rawQuery: string, k = 5): HsHit[] {
