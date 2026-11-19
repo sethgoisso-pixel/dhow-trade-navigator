@@ -43,6 +43,13 @@ describe("Gemini chain", () => {
     script([new Error("The operation was aborted due to timeout"), ok()]);
     expect(await callGeminiChain("k", ["google/a"], req, undefined, fast)).toEqual({ action: "finish" });
   });
+  it("treats a timeout while reading the answer as temporary and wraps it", async () => {
+    const broken = { ok: true, status: 200, json: async () => { throw new Error("The operation was aborted due to timeout"); }, clone() { return broken; } } as unknown as Response;
+    script([broken, broken]);
+    const err = await callGeminiChain("k", ["google/a"], req, undefined, fast).catch((e) => e as Error);
+    expect(err).toBeInstanceOf(GeminiError);
+    expect(err.message).toContain("did not answer in time");
+  });
   it("stops at once on a configuration error", async () => {
     const urls = script([new Response("x", { status: 403 }), ok()]);
     await expect(callGeminiChain("k", ["google/a", "google/b"], req, undefined, fast)).rejects.toThrow("rejected the configuration");

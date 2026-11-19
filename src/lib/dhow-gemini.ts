@@ -53,10 +53,17 @@ export async function callGeminiJSON(
         ? "Google Gemini rejected the configuration or access. The built-in tools remain available."
         : `Google Gemini unavailable (HTTP ${res.status}). The built-in tools remain available.`, res.status);
   }
-  const body = await res.json() as {
+  type GeminiBody = {
     candidates?: Array<{ content?: { parts?: Array<{ text?: string; thought?: boolean }> }; finishReason?: string }>;
     usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number; thoughtsTokenCount?: number };
   };
+  let body: GeminiBody;
+  try {
+    body = await res.json() as GeminiBody;
+  } catch {
+    // The timeout can also fire while the answer is still being read.
+    throw new GeminiError("Google Gemini did not answer in time. The built-in tools remain available.", 0);
+  }
   if (meter) {
     meter.inputTokens += body.usageMetadata?.promptTokenCount ?? 0;
     meter.outputTokens += (body.usageMetadata?.candidatesTokenCount ?? 0) + (body.usageMetadata?.thoughtsTokenCount ?? 0);
