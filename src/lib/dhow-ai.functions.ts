@@ -1,4 +1,4 @@
-import { callGeminiJSON } from "./dhow-gemini";
+import { callGeminiChain } from "./dhow-gemini";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { lookupCity, unknownCityMessage, type Plan, type PlanSource } from "./dhow-plan";
@@ -29,9 +29,11 @@ export type AgentResponse = {
 };
 
 export const AI_MODEL = "google/gemini-3.1-flash-lite";
+/** Tried in order: a temporary Google failure is retried once, then the next model is used. */
+export const AI_MODELS = [AI_MODEL, "google/gemini-3.5-flash-lite"];
 
 /** Per-run usage counters, filled by every model call and stored in agent_runs. */
-type Meter = { calls: number; inputTokens: number; outputTokens: number; t0: number };
+type Meter = { calls: number; inputTokens: number; outputTokens: number; t0: number; model?: string };
 const newMeter = (): Meter => ({ calls: 0, inputTokens: 0, outputTokens: 0, t0: Date.now() });
 
 /** Writes one agent-run telemetry row. Never throws: logging must not break the user's request. */
@@ -39,7 +41,7 @@ async function logRun(kind: string, source: string, m: Meter, note: string | nul
   try {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { error } = await supabaseAdmin.from("agent_runs").insert({
-      kind, source, model: modelName, model_calls: m.calls, input_tokens: m.inputTokens,
+      kind, source, model: m.model ?? modelName, model_calls: m.calls, input_tokens: m.inputTokens,
       output_tokens: m.outputTokens, duration_ms: Date.now() - m.t0, note: note?.slice(0, 300) ?? null,
     });
     if (error) console.error("agent_runs insert", error.message);
@@ -50,7 +52,7 @@ async function logRun(kind: string, source: string, m: Meter, note: string | nul
 
 /** The same strict action schema, now sent directly to Google instead of the credit gateway. */
 async function callModelJSON(apiKey: string, req: Parameters<ModelJSON>[0], meter?: Meter): Promise<unknown> {
-  return callGeminiJSON(apiKey, AI_MODEL, req, meter);
+  return callGeminiChain(apiKey, AI_MODELS, req, meter);
 }
 
 /**
@@ -299,7 +301,7 @@ export const classifyCommodity = createServerFn({ method: "POST" })
 
 // --- Natural Language Shipment Extraction (Fast & Economic) ---
 
-export const EXTRACTION_MODEL = "google/gemini-3.1-flash-lite";
+export const EXTRACTION_MODEL = AI_MODEL;
 
 const ExtractionInput = z.object({
   text: z.string().min(2).max(1000),
@@ -355,14 +357,14 @@ export const extractShipment = createServerFn({ method: "POST" })
 Keys:
 - "origin": departure city and/or country, or null if not stated
 - "destination": arrival city and/or country, or null if not stated
-- "cargoType": the goods, or null if not stated
+- "cargoType": the goods, written in English (translate if needed, for example "riz" becomes "rice"), or null if not stated
 - "weight": total weight in metric tonnes, ONLY if the text states a weight (convert kg to tonnes) or a container size (20 ft container = 20, 40 ft container = 25, and say this assumption in the summary). For pallets, cartons, boxes or pieces without a weight, use null. Never guess.
 - "volume": volume in CBM, ONLY if stated or from a container size (20 ft = 33, 40 ft = 67), otherwise null
 - "declaredValue": value in USD, ONLY if stated, otherwise null
 - "summary": one short sentence saying what was understood, and which values were not given.
 Never invent a value. Use null when unsure.`;
 
-      const parsed = await callGeminiJSON(apiKey, EXTRACTION_MODEL, {
+      const parsed = await callGeminiChain(apiKey, AI_MODELS, {
         instructions: prompt,
         input: data.text,
         schema: {
