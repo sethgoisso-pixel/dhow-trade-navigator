@@ -96,12 +96,12 @@ function Optimizer() {
               <span className="rounded-full bg-gold/10 px-2 py-0.5 font-medium text-gold-2">
                 {planSource === "ai" ? "✦ Dhow Agent (AI + verified tools)" : planSource === "tools" ? "Tool pipeline (no AI)" : planSource === "preset" ? "Preset scenario" : "Simulated Engine"}
               </span>
-                        </div>
+            </div>
 
             {planNote && planSource === "tools" && (
-              <div className="flex items-start gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-200">
-                <AlertCircle className="size-4 shrink-0 text-amber-400 mt-0.5" />
-                <span>{planNote}</span>
+              <div role="status" className="flex items-start gap-2 rounded-xl border border-amber-600/50 bg-amber-100 p-3 text-xs text-amber-950 dark:border-amber-500/40 dark:bg-amber-950/60 dark:text-amber-100">
+                <AlertCircle className="size-4 shrink-0 text-amber-700 dark:text-amber-300 mt-0.5" />
+                <span><b>AI engine unavailable, plan built without AI.</b> {planNote}</span>
               </div>
             )}
 
