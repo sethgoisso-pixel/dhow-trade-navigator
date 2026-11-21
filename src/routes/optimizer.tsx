@@ -101,7 +101,7 @@ function Optimizer() {
             {planNote && planSource === "tools" && (
               <div role="status" className="flex items-start gap-2 rounded-xl border border-amber-600/50 bg-amber-100 p-3 text-xs text-amber-950 dark:border-amber-500/40 dark:bg-amber-950/60 dark:text-amber-100">
                 <AlertCircle className="size-4 shrink-0 text-amber-700 dark:text-amber-300 mt-0.5" />
-                <span><b>AI engine unavailable, plan built without AI.</b> {planNote}</span>
+                <span><b>Plan built without AI.</b> {planNote} Press Run again to retry.</span>
               </div>
             )}
 
