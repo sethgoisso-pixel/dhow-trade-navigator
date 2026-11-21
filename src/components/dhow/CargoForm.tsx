@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Sparkles, Check, AlertCircle, HelpCircle, Loader2 } from "lucide-react";
+import { useRef, useState } from "react";
+import { Sparkles, Check, AlertCircle, HelpCircle, Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,6 +16,7 @@ export function CargoFormPanel() {
   const [extracting, setExtracting] = useState(false);
   const [extracted, setExtracted] = useState<ExtractionResult | null>(null);
   const [confirmed, setConfirmed] = useState(false);
+  const descriptionRef = useRef<HTMLTextAreaElement>(null);
 
   const handleExtract = async () => {
     if (!nlText.trim()) return;
@@ -82,13 +83,35 @@ export function CargoFormPanel() {
           <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-mono">Gemini 3.1 Flash-Lite</span>
         </div>
 
+        <div className="relative">
         <Textarea
+          ref={descriptionRef}
           placeholder="e.g. Solar panels, Shenzhen to Lagos, 20 tonnes in one 20 ft container"
           value={nlText}
           disabled={extracting || running}
           onChange={(e) => { setNlText(e.target.value); setConfirmed(false); setExtracted(null); }}
-          className="min-h-[64px] text-xs resize-none"
+          className="min-h-[64px] text-xs resize-none pr-12"
         />
+        {nlText.length > 0 && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            aria-label="Clear shipment description"
+            title="Clear shipment description"
+            disabled={extracting || running}
+            className="absolute right-1 top-1 size-9 text-muted-foreground hover:text-foreground"
+            onClick={() => {
+              setNlText("");
+              setExtracted(null);
+              setConfirmed(false);
+              descriptionRef.current?.focus();
+            }}
+          >
+            <X className="size-4" />
+          </Button>
+        )}
+        </div>
 
         <div className="flex items-center justify-between gap-2">
           <Button

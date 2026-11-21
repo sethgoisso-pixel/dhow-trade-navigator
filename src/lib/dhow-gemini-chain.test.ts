@@ -48,6 +48,7 @@ describe("Gemini chain", () => {
     script([broken, broken]);
     const err = await callGeminiChain("k", ["google/a"], req, undefined, fast).catch((e) => e as Error);
     expect(err).toBeInstanceOf(GeminiError);
+    if (!(err instanceof GeminiError)) throw new Error("Expected GeminiError");
     expect(err.message).toContain("did not answer in time");
   });
   it("stops at once on a configuration error", async () => {
@@ -59,6 +60,7 @@ describe("Gemini chain", () => {
     script([new Response("secret upstream detail", { status: 503 })]);
     const err = await callGeminiChain("k", ["google/a", "google/b"], req, undefined, fast).catch((e) => e as Error);
     expect(err).toBeInstanceOf(GeminiError);
+    if (!(err instanceof GeminiError)) throw new Error("Expected GeminiError");
     expect(err.message).toContain("unavailable (HTTP 503)");
     expect(err.message).not.toContain("secret");
   });

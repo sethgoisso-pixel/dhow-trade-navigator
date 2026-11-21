@@ -42,7 +42,7 @@ describe("city lookup", () => {
 });
 
 describe("new cities in the tools", () => {
-  const base = { cargoType: "Rice", weight: 25, volume: 50, declaredValue: 15000 };
+  const base = { cargoType: "Rice", weight: 25, volume: 50, declaredValue: 15000, deadline: "" };
   it("plans Bangkok to Accra end to end", () => {
     const r = runToolPipeline({ ...base, origin: "Bangkok", destination: "Accra" });
     expect(r.ok).toBe(true);
@@ -80,7 +80,7 @@ describe("new cities in the tools", () => {
 describe("unknown cities cost nothing", () => {
   it("refuses before calling the model", async () => {
     let calls = 0;
-    const r = await runAgentLoop({ origin: "Atlantis", destination: "Cotonou", cargoType: "Rice", weight: 25, volume: 50, declaredValue: 15000 }, async () => { calls++; return {}; });
+    const r = await runAgentLoop({ origin: "Atlantis", destination: "Cotonou", cargoType: "Rice", weight: 25, volume: 50, declaredValue: 15000, deadline: "" }, async () => { calls++; return {}; });
     expect(r.ok).toBe(false);
     expect(calls).toBe(0);
     if (!r.ok) expect(r.error).toContain("Atlantis");
@@ -88,7 +88,7 @@ describe("unknown cities cost nothing", () => {
 });
 
 describe("lot 2: ports, French words, freight in the duty base", () => {
-  const ricePlan = { origin: "Laem Chabang", destination: "Abidjan", cargoType: "Rice", weight: 25, volume: 50, declaredValue: 15000 };
+  const ricePlan = { origin: "Laem Chabang", destination: "Abidjan", cargoType: "Rice", weight: 25, volume: 50, declaredValue: 15000, deadline: "" };
   it("understands common French product names", async () => {
     const { searchHS } = await import("./agent/tools");
     expect(searchHS("Riz", 1)[0]?.code.startsWith("1006")).toBe(true);
