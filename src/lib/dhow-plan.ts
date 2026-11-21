@@ -300,10 +300,23 @@ export function routeModel(f: CargoForm, o: ResolvedCity, d: ResolvedCity, hubOv
   const direct = distanceKm(o, d);
   const via = (h: { lat: number; lng: number }) => distanceKm(o, h) + distanceKm(h, d);
   if (o.region === "AF" && d.region === "AF" && direct < 2500 && via(hub) > direct * 1.25) {
+    const title = (k: string) => k.replace(/\b\w/g, (ch) => ch.toUpperCase());
+    // 1) The African port that adds the least.
     let best: ResolvedCity | null = null;
     for (const [k, c] of Object.entries(GEO)) {
       if (c.region !== "AF" || c.noHub || c.code === o.code || c.code === d.code || k === "johannesburg" || k === "lomé") continue;
-      if (!best || via(c) < via(best)) best = { ...c, name: k.replace(/\b\w/g, (ch) => ch.toUpperCase()) };
+      if (!best || via(c) < via(best)) best = { ...c, name: title(k) };
+    }
+    // 2) If even that port is a real detour (more than 25%), use a city that really lies on the way: it adds at most 10%
+    //    and is at least a quarter of the leg from each end. Inland cities are allowed here, for example Nairobi between Mombasa and Kampala.
+    if (!best || via(best) > direct * 1.25) {
+      let onWay: ResolvedCity | null = null;
+      for (const [k, c] of Object.entries(GEO)) {
+        if (c.region !== "AF" || c.code === o.code || c.code === d.code || k === "johannesburg" || k === "lomé") continue;
+        if (via(c) > direct * 1.1 || distanceKm(o, c) < direct * 0.25 || distanceKm(c, d) < direct * 0.25) continue;
+        if (!onWay || via(c) < via(onWay)) onWay = { ...c, name: title(k) };
+      }
+      if (onWay) best = onWay;
     }
     if (best && via(best) < via(hub)) {
       hubNote = `Hub changed from ${hub.name} to ${best.name}: ${hub.name} would add ${Math.round((via(hub) / direct - 1) * 100)}% to the direct distance, ${best.name} adds ${Math.round((via(best) / direct - 1) * 100)}%.`;
@@ -316,8 +329,8 @@ export function routeModel(f: CargoForm, o: ResolvedCity, d: ResolvedCity, hubOv
   const chargeable = Math.max(f.weight * 1000, f.volume * 167);
   const options: PlanOption[] = [
     { key: "A", name: "Fastest — Sea-Air / Direct Air", via: `${hub.name} air hub`, days: Math.max(3, Math.round(5 * k)), cost: Math.round(chargeable * 1.9 * k), co2: +(chargeable * 0.0016 * k).toFixed(1), reliability: 91 },
-    { key: "B", name: "Cost-Effective — Ocean FCL", via: `Direct ocean / ${hub.name}`, days: Math.round(22 * k), cost: Math.round(teu * 2300 * k), co2: +(f.weight * 0.1 * k).toFixed(1), reliability: 78 },
-    { key: "C", name: "Dhow AI Optimized Multimodal", via: `${hub.name} transshipment → priority feeder`, days: Math.round(15 * k), cost: Math.round(teu * 2300 * k * 1.14), co2: +(f.weight * 0.12 * k).toFixed(1), reliability: 94 },
+    { key: "B", name: "Cost-Effective — Ocean FCL", via: hub.noHub ? `Overland corridor via ${hub.name}` : `Direct ocean / ${hub.name}`, days: Math.round(22 * k), cost: Math.round(teu * 2300 * k), co2: +(f.weight * 0.1 * k).toFixed(1), reliability: 78 },
+    { key: "C", name: "Dhow AI Optimized Multimodal", via: hub.noHub ? `${hub.name} consolidation → priority trucking` : `${hub.name} transshipment → priority feeder`, days: Math.round(15 * k), cost: Math.round(teu * 2300 * k * 1.14), co2: +(f.weight * 0.12 * k).toFixed(1), reliability: 94 },
   ];
   return { hub, km, teu, options, hubNote };
 }
@@ -422,7 +435,7 @@ export function simulatePlan(f: CargoForm, presetSteps?: string[], hsQuery?: str
       congestion: d.region === "AF" ? 41 : 22,
       customs: d.region === "AF" ? 34 : 12,
       weather: 27,
-      briefing: `Red Sea routing remains elevated-risk; Dhow recommends consolidation at ${hub.name} with a priority feeder to ${d.name} to hedge berth congestion and customs dwell.`,
+      briefing: hub.noHub ? `Dhow recommends consolidation at ${hub.name} with priority trucking to ${d.name} to hedge border and customs dwell.` : `Red Sea routing remains elevated-risk; Dhow recommends consolidation at ${hub.name} with a priority feeder to ${d.name} to hedge berth congestion and customs dwell.`,
     },
     documents: docs,
   };

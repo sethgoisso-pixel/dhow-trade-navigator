@@ -49,7 +49,7 @@ export function toUsdPerTonne(value: number, units: string | null): number | nul
   return null;
 }
 
-export type RefPrice = { seriesId: string; label: string; title: string; usdPerTonne: number; asOf: string; url: string };
+export type RefPrice = { seriesId: string; label: string; title: string; usdPerTonne: number; asOf: string; url: string; /** true when the live source was unreachable and the last price this server retrieved is shown instead. */ stale?: boolean };
 
 const cache = new Map<string, { at: number; v: RefPrice | null }>();
 const TTL = 12 * 3600 * 1000;
@@ -105,6 +105,8 @@ export async function fetchReferencePriceDiag(series: RefSeries): Promise<{ ref:
   }
 
   if (v) cache.set(series.id, { at: Date.now(), v });
+  // Source down (for example a FRED outage): keep showing the last price this server retrieved, clearly marked, instead of asking the user for a value.
+  if (!v && hit?.v) return { ref: { ...hit.v, stale: true }, why: null };
   return { ref: v, why: v ? null : why.join(", ") || "no data" };
 }
 
@@ -128,8 +130,9 @@ export function buildValuation(opts: { enteredUsd: number; tonnes: number; ref: 
   if (!ref) return null;
   const implied = Math.round(ref.usdPerTonne * tonnes);
   const reference = { label: ref.label, title: ref.title, usdPerTonne: Math.round(ref.usdPerTonne), asOf: ref.asOf, url: ref.url, impliedUsd: implied };
+  const staleNote = ref.stale ? " The live price source is unreachable right now, so this is the last price retrieved by the server (shown with its date)." : "";
   if (enteredUsd <= 0) {
-    return { basis: "reference", valueUsd: implied, flag: null, reference, note: `No invoice value entered: estimated at ${tonnes} t \u00D7 $${reference.usdPerTonne.toLocaleString("en-US")}/t (${ref.title}, IMF via FRED, ${ref.asOf}). Customs use the invoice value, so replace this with your real one.` };
+    return { basis: "reference", valueUsd: implied, flag: null, reference, note: `No invoice value entered: estimated at ${tonnes} t \u00D7 $${reference.usdPerTonne.toLocaleString("en-US")}/t (${ref.title}, IMF via FRED, ${ref.asOf}). Customs use the invoice value, so replace this with your real one.${staleNote}` };
   }
   const ratio = enteredUsd / implied;
   const flag = ratio < 0.5 ? "low" : ratio > 2.5 ? "high" : null;
@@ -139,6 +142,6 @@ export function buildValuation(opts: { enteredUsd: number; tonnes: number; ref: 
       ? `Declared value is ${pct}% of the reference benchmark (${ref.title}, ${ref.asOf}). Customs may question a value this far below market (under-invoicing risk): check the invoice.`
       : flag === "high"
         ? `Declared value is ${pct}% of the reference benchmark (${ref.title}, ${ref.asOf}). Check the invoice: a value this far above market can also trigger a customs review.`
-        : `Declared value is ${pct}% of the reference benchmark (${ref.title}, ${ref.asOf}): consistent with the market.`;
-  return { basis: "entered", valueUsd: enteredUsd, flag, reference, note };
+        : `Declared value is ${pct}% of the reference benchmark (${ref.title}, ${ref.asOf}): consistent with the market.${staleNote}`;
+  return { basis: "entered", valueUsd: enteredUsd, flag, reference, note: note + (flag ? staleNote : "") };
 }

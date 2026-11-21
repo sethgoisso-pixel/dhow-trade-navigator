@@ -55,6 +55,19 @@ describe("new cities in the tools", () => {
     expect(k.ok).toBe(true);
     if (k.ok) expect(k.hub.name).not.toBe("Kampala");
   });
+  it("routes Mombasa to Kampala through Nairobi, the real corridor, with almost no detour", () => {
+    const k = estimateRoutes({ ...base, origin: "Mombasa", destination: "Kampala" });
+    expect(k.ok).toBe(true);
+    if (k.ok) {
+      expect(k.hub.name).toBe("Nairobi");
+      expect(k.hubNote).toContain("Nairobi");
+      expect(k.distanceKm).toBeLessThan(1100);
+    }
+  });
+  it("keeps a port hub when no city lies on the way", () => {
+    const k = estimateRoutes({ ...base, origin: "Cotonou", destination: "Mombasa" });
+    expect(k.ok).toBe(true);
+  });
   it("applies the right customs bloc and VAT to new countries", () => {
     expect(checkDutyRate("Uganda", 10).bloc).toContain("EAC");
     expect(checkDutyRate("Gabon", 10).bloc).toContain("CEMAC");

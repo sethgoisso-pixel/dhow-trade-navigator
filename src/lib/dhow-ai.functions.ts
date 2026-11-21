@@ -63,7 +63,10 @@ async function callModelJSON(apiKey: string, req: Parameters<ModelJSON>[0], mete
  */
 const AI_RUNS_PER_VISITOR_PER_HOUR = 10;
 const AI_RUNS_GLOBAL_PER_HOUR = 100;
+/** Daily safety cap for the whole site (UTC day). Protects the Google bill if the paid plan is on; can be changed with the AI_RUNS_PER_DAY server variable. */
+const dailyCap = () => Math.max(1, Number(process.env["AI_RUNS_PER_DAY"]) || 200);
 
+let dayBucket = { day: -1, used: 0 };
 let globalBucket = { hour: -1, used: 0 };
 const visitorBuckets = new Map<string, { hour: number; used: number }>();
 
@@ -72,9 +75,18 @@ function allowAiRun(visitorId?: string): { allowed: boolean; note?: string } {
   const minutesRemaining = Math.max(1, 60 - new Date().getMinutes());
   const waitMsg = `Try again in ${minutesRemaining} minute${minutesRemaining > 1 ? "s" : ""}.`;
 
+  const currentDay = Math.floor(Date.now() / 86_400_000);
+  if (dayBucket.day !== currentDay) dayBucket = { day: currentDay, used: 0 };
   if (globalBucket.hour !== currentHour) {
     globalBucket = { hour: currentHour, used: 0 };
     visitorBuckets.clear();
+  }
+
+  if (dayBucket.used >= dailyCap()) {
+    return {
+      allowed: false,
+      note: `The daily AI limit for this site has been reached (${dailyCap()} per day). The result below comes from the built-in tools only, without AI. It resets at 00:00 UTC.`,
+    };
   }
 
   if (globalBucket.used >= AI_RUNS_GLOBAL_PER_HOUR) {
@@ -99,6 +111,7 @@ function allowAiRun(visitorId?: string): { allowed: boolean; note?: string } {
   }
 
   globalBucket.used++;
+  dayBucket.used++;
   v.used++;
   return { allowed: true };
 }
