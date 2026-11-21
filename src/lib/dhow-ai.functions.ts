@@ -30,7 +30,7 @@ export type AgentResponse = {
 
 export const AI_MODEL = "google/gemini-3.1-flash-lite";
 /** Tried in order: a temporary Google failure is retried once, then the next model is used. */
-export const AI_MODELS = [AI_MODEL, "google/gemini-3.5-flash-lite"];
+export const AI_MODELS = [AI_MODEL, "google/gemini-3.5-flash-lite", "google/gemini-2.5-flash-lite"];
 
 /** Per-run usage counters, filled by every model call and stored in agent_runs. */
 type Meter = { calls: number; inputTokens: number; outputTokens: number; t0: number; model?: string };
@@ -191,7 +191,7 @@ export const planShipment = createServerFn({ method: "POST" })
     }
     const p = runToolPipeline(form, { sea });
     await logRun("plan", "tools", meter, note);
-    if (p.ok) return { plan: attach(p.plan), source: "tools", note: `${note} \u2014 ran the tool pipeline without AI`, error: null, trace: p.trace };
+    if (p.ok) return { plan: attach(p.plan), source: "tools", note, error: null, trace: p.trace };
     return { plan: null, source: "tools", note, error: p.error, trace: p.trace };
   });
 

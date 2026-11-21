@@ -1,5 +1,5 @@
 /** Direct Google calls; the key is supplied only by a server handler. */
-export type GeminiMeter = { calls: number; inputTokens: number; outputTokens: number; lastGeminiCallAt?: number; /** Model that finally answered, e.g. "google/gemini-3.1-flash-lite". */ model?: string };
+export type GeminiMeter = { calls: number; inputTokens: number; outputTokens: number; lastGeminiCallAt?: number; /** Model that finally answered, e.g. "google/gemini-3.1-flash-lite". */ model?: string; /** Time (ms since epoch) after which no further attempt is made for this analysis. Set by the first chain call. */ deadlineAt?: number };
 
 /** An error from Google. `status` is the HTTP status, or 0 for a timeout or network failure. The message never contains upstream data. */
 export class GeminiError extends Error {
@@ -82,7 +82,8 @@ export async function callGeminiJSON(
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
- * Tries the models in order. A temporary failure (HTTP 5xx, timeout, incomplete answer) is retried once on the same model;
+ * Tries the models in order. A temporary failure (HTTP 5xx, timeout, incomplete answer) is retried up to 3 times in total on the same model
+ * (1.5 s then 3 s of waiting), and the whole analysis stops trying after a time budget (default 60 s) so that the built-in tools take over quickly;
  * a quota (429) or unknown model (404) moves on to the next model; a configuration error (400/401/403) stops at once.
  * Every attempt is counted in the meter, and the meter records which model finally answered.
  */
@@ -91,12 +92,14 @@ export async function callGeminiChain(
   models: string[],
   req: { instructions: string; input: string; schema: unknown },
   meter?: GeminiMeter,
-  opts: { attempts?: number; timeoutMs?: number; backoffMs?: number } = {},
+  opts: { attempts?: number; timeoutMs?: number; backoffMs?: number; budgetMs?: number } = {},
 ): Promise<unknown> {
-  const attempts = opts.attempts ?? 2;
+  const attempts = opts.attempts ?? 3;
+  const deadline = meter ? (meter.deadlineAt ??= Date.now() + (opts.budgetMs ?? 60_000)) : Date.now() + (opts.budgetMs ?? 60_000);
   let last: Error = new GeminiError("Google Gemini unavailable. The built-in tools remain available.", 0);
   for (const model of models) {
     for (let a = 0; a < attempts; a++) {
+      if (Date.now() > deadline) throw last instanceof GeminiError && last.status !== 0 ? last : new GeminiError("Google Gemini did not answer in time. The built-in tools remain available.", 0);
       try {
         const out = await callGeminiJSON(apiKey, model, req, meter, opts.timeoutMs ?? 15_000);
         if (meter) meter.model = model;

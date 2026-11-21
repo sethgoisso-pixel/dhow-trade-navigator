@@ -29,15 +29,32 @@ describe("Gemini chain", () => {
     expect(meter.model).toBe("google/a");
     expect(meter.calls).toBe(2);
   });
-  it("moves to the next model after two failures or on a quota error", async () => {
-    const urls = script([new Response("x", { status: 503 }), new Response("x", { status: 503 }), ok()]);
+  it("moves to the next model after three failures or on a quota error", async () => {
+    const urls = script([new Response("x", { status: 503 }), new Response("x", { status: 503 }), new Response("x", { status: 503 }), ok()]);
     const meter = { calls: 0, inputTokens: 0, outputTokens: 0 } as { calls: number; inputTokens: number; outputTokens: number; model?: string };
     await callGeminiChain("k", ["google/a", "google/b"], req, meter, fast);
-    expect(urls.map((u) => (u.includes("/a:") ? "a" : "b"))).toEqual(["a", "a", "b"]);
+    expect(urls.map((u) => (u.includes("/a:") ? "a" : "b"))).toEqual(["a", "a", "a", "b"]);
     expect(meter.model).toBe("google/b");
     const urls2 = script([new Response("x", { status: 429 }), ok()]);
     await callGeminiChain("k", ["google/a", "google/b"], req, undefined, fast);
     expect(urls2.map((u) => (u.includes("/a:") ? "a" : "b"))).toEqual(["a", "b"]);
+  });
+  it("recovers on the third attempt of the same model", async () => {
+    const urls = script([new Response("x", { status: 503 }), new Response("x", { status: 503 }), ok()]);
+    expect(await callGeminiChain("k", ["google/a", "google/b"], req, undefined, fast)).toEqual({ action: "finish" });
+    expect(urls.map((u) => (u.includes("/a:") ? "a" : "b"))).toEqual(["a", "a", "a"]);
+  });
+  it("can use a third model when the first two are overloaded", async () => {
+    const bad = () => new Response("x", { status: 503 });
+    const urls = script([bad(), bad(), bad(), bad(), bad(), bad(), ok()]);
+    await callGeminiChain("k", ["google/a", "google/b", "google/c"], req, undefined, fast);
+    expect(urls.filter((u) => u.includes("/c:")).length).toBe(1);
+  });
+  it("stops trying once the time budget of the analysis is spent", async () => {
+    const urls = script([new Response("x", { status: 503 }), ok()]);
+    const meter = { calls: 0, inputTokens: 0, outputTokens: 0, deadlineAt: Date.now() - 1 };
+    await expect(callGeminiChain("k", ["google/a", "google/b"], req, meter, fast)).rejects.toThrow("did not answer in time");
+    expect(urls.length).toBe(0);
   });
   it("treats a timeout as temporary", async () => {
     script([new Error("The operation was aborted due to timeout"), ok()]);
